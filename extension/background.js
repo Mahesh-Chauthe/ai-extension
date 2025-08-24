@@ -6,7 +6,7 @@ importScripts('local-analyzer.js')
 
 class ExtensionBackgroundService {
   constructor() {
-    this.apiBaseUrl = 'https://api.extension-system.com'
+    this.apiBaseUrl = 'http://localhost:3000'
     this.isAuthenticated = false
     this.userConfig = null
     this.s3Config = null
