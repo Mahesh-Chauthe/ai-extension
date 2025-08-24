@@ -12,6 +12,12 @@ if ! command -v kubectl &> /dev/null; then
     exit 1
 fi
 
+# Check if docker is available
+if ! command -v docker &> /dev/null; then
+    echo "❌ Docker is not installed. Please install Docker first."
+    exit 1
+fi
+
 # Check if cluster is accessible
 if ! kubectl cluster-info &> /dev/null; then
     echo "❌ Cannot connect to Kubernetes cluster. Please check your kubeconfig."
@@ -19,6 +25,10 @@ if ! kubectl cluster-info &> /dev/null; then
 fi
 
 echo "✅ Kubernetes cluster is accessible"
+
+# Build Docker images
+echo "🐳 Building Docker images..."
+./scripts/build-images.sh
 
 # Create namespace
 echo "📦 Creating namespace..."
@@ -39,10 +49,34 @@ echo "⏳ Waiting for databases to be ready..."
 kubectl wait --for=condition=available --timeout=300s deployment/postgres -n extension-system
 kubectl wait --for=condition=available --timeout=300s deployment/redis -n extension-system
 
+# Initialize database
+echo "🔄 Initializing database..."
+kubectl create configmap db-schema --from-file=database/schema.sql -n extension-system --dry-run=client -o yaml | kubectl apply -f -
+
 # Run database migrations
-echo "🔄 Running database migrations..."
-kubectl run db-migration --image=postgres:15 --rm -i --restart=Never -n extension-system -- \
-  psql postgresql://postgres:password123@postgres-service:5432/extension_db -f /scripts/schema.sql
+echo "📊 Running database migrations..."
+kubectl run db-migration --image=postgres:15 --rm -i --restart=Never -n extension-system \
+  --env="PGPASSWORD=password123" \
+  --overrides='{
+    "spec": {
+      "containers": [{
+        "name": "db-migration",
+        "image": "postgres:15",
+        "command": ["sh", "-c"],
+        "args": ["until pg_isready -h postgres-service -p 5432; do sleep 2; done && psql -h postgres-service -U postgres -d extension_db -f /schema/schema.sql"],
+        "volumeMounts": [{
+          "name": "schema",
+          "mountPath": "/schema"
+        }]
+      }],
+      "volumes": [{
+        "name": "schema",
+        "configMap": {
+          "name": "db-schema"
+        }
+      }]
+    }
+  }' -- sleep 30
 
 # Deploy backend
 echo "🖥️ Deploying backend API..."

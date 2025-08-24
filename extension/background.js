@@ -1,5 +1,8 @@
-// Enhanced background script with AI chatbot detection and S3 integration
+// Enhanced background script with local AI analysis and S3 integration
 const chrome = window.chrome
+
+// Import local analyzer
+importScripts('local-analyzer.js')
 
 class ExtensionBackgroundService {
   constructor() {
@@ -7,6 +10,7 @@ class ExtensionBackgroundService {
     this.isAuthenticated = false
     this.userConfig = null
     this.s3Config = null
+    this.localAnalyzer = new LocalSensitiveDataAnalyzer()
     
     this.init()
   }
@@ -111,40 +115,35 @@ class ExtensionBackgroundService {
 
   async analyzeSensitiveData(data) {
     try {
-      const stored = await chrome.storage.local.get(['authToken'])
-      
-      if (!stored.authToken) {
-        throw new Error('Not authenticated')
-      }
-
-      // Enhanced analysis for AI chatbots
-      const analysisPayload = {
-        ...data,
+      // Use local analyzer instead of external API
+      const context = {
+        url: data.url,
+        source: data.source,
         userAgent: navigator.userAgent,
         timestamp: new Date().toISOString(),
         extensionVersion: chrome.runtime.getManifest().version
       }
 
-      const response = await fetch(`${this.apiBaseUrl}/api/analyze/sensitive-data`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${stored.authToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(analysisPayload)
-      })
+      // Perform local analysis
+      const analysis = this.localAnalyzer.analyze(data.content, context)
 
-      if (!response.ok) {
-        throw new Error(`Analysis failed: ${response.statusText}`)
+      // Add organization-specific context if available
+      if (this.userConfig?.organization) {
+        analysis.organization = this.userConfig.organization.name
       }
 
-      const analysis = await response.json()
+      // Log detection event locally
+      await this.logDetectionEvent({
+        analysis,
+        content: data.content.substring(0, 100) + '...', // Store only snippet for privacy
+        metadata: context
+      })
 
       // If high-risk content detected, store evidence in S3
       if (analysis.riskScore > 0.7) {
         await this.storeEvidenceInS3({
           analysis,
-          content: data.content,
+          contentHash: await this.hashContent(data.content), // Store hash instead of content
           metadata: {
             url: data.url,
             source: data.source,
@@ -160,7 +159,9 @@ class ExtensionBackgroundService {
       console.error('Sensitive data analysis error:', error)
       return {
         hasSensitiveData: false,
-        error: error.message
+        error: error.message,
+        riskScore: 0,
+        action: 'allow'
       }
     }
   }
@@ -334,6 +335,50 @@ class ExtensionBackgroundService {
         success: false,
         error: error.message
       }
+    }
+  }
+
+  // Hash content for privacy-preserving storage
+  async hashContent(content) {
+    const encoder = new TextEncoder()
+    const data = encoder.encode(content)
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+  }
+
+  // Log detection events locally
+  async logDetectionEvent(eventData) {
+    try {
+      const stored = await chrome.storage.local.get(['detectionLogs'])
+      const logs = stored.detectionLogs || []
+      
+      logs.push({
+        ...eventData,
+        id: Date.now(),
+        timestamp: new Date().toISOString()
+      })
+      
+      // Keep only last 100 logs
+      if (logs.length > 100) {
+        logs.splice(0, logs.length - 100)
+      }
+      
+      await chrome.storage.local.set({ detectionLogs: logs })
+    } catch (error) {
+      console.error('Failed to log detection event:', error)
+    }
+  }
+
+  // Update local analyzer patterns
+  async updateAnalyzerPatterns() {
+    try {
+      const stored = await chrome.storage.local.get(['customPatterns'])
+      if (stored.customPatterns) {
+        this.localAnalyzer.updatePatterns(stored.customPatterns)
+      }
+    } catch (error) {
+      console.error('Failed to update analyzer patterns:', error)
     }
   }
 }

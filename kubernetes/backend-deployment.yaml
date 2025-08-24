@@ -20,13 +20,40 @@ spec:
         - containerPort: 3000
         env:
         - name: NODE_ENV
-          value: "production"
+          valueFrom:
+            configMapKeyRef:
+              name: extension-config
+              key: NODE_ENV
         - name: PORT
-          value: "3000"
+          valueFrom:
+            configMapKeyRef:
+              name: extension-config
+              key: PORT
         - name: DATABASE_URL
-          value: "postgresql://postgres:$(DATABASE_PASSWORD)@$(DATABASE_HOST):$(DATABASE_PORT)/$(DATABASE_NAME)"
+          valueFrom:
+            configMapKeyRef:
+              name: extension-config
+              key: DATABASE_URL
         - name: REDIS_URL
-          value: "redis://$(REDIS_HOST):$(REDIS_PORT)"
+          valueFrom:
+            configMapKeyRef:
+              name: extension-config
+              key: REDIS_URL
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: extension-secrets
+              key: JWT_SECRET
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: extension-secrets
+              key: OPENAI_API_KEY
+        - name: ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: extension-secrets
+              key: ENCRYPTION_KEY
         envFrom:
         - configMapRef:
             name: extension-config

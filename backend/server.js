@@ -1,3 +1,4 @@
+require('dotenv').config()
 const express = require("express")
 const cors = require("cors")
 const helmet = require("helmet")
@@ -310,6 +311,86 @@ app.post("/api/analyze/sensitive-data", authenticateToken, async (req, res) => {
           analysis.overallRisk > 0.8 ? "blocked" : "warned",
         ],
       )
+    }
+
+    res.json({
+      hasSensitiveData: analysis.overallRisk > Number.parseFloat(process.env.SENSITIVE_DATA_THRESHOLD || "0.5"),
+      riskLevel: analysis.aiAnalysis.riskLevel || "low",
+      confidence: analysis.overallRisk,
+      detectedPatterns: analysis.regexDetections,
+      aiAnalysis: analysis.aiAnalysis,
+      action: analysis.overallRisk > 0.8 ? "blocked" : analysis.overallRisk > 0.5 ? "warned" : "allowed"
+    })
+  } catch (error) {
+    console.error("Sensitive data analysis error:", error)
+    res.status(500).json({ error: "Internal server error" })
+  }
+})
+
+// Analytics dashboard endpoint
+app.get("/api/analytics/dashboard", authenticateToken, requireRole(["admin", "manager"]), async (req, res) => {
+  try {
+    const organizationId = req.user.organizationId
+
+    const detectionStats = await pool.query(
+      `SELECT COUNT(*) as total_detections FROM sensitive_detections WHERE organization_id = $1`,
+      [organizationId]
+    )
+
+    res.json({
+      detectionStats: detectionStats.rows[0],
+      timestamp: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error("Analytics error:", error)
+    res.status(500).json({ error: "Internal server error" })
+  }
+})
+
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`)
+})ned",
+        ],
+      )
+    }
+
+    res.json({
+      hasSensitiveData: analysis.overallRisk > Number.parseFloat(process.env.SENSITIVE_DATA_THRESHOLD || "0.5"),
+      riskLevel: analysis.aiAnalysis.riskLevel || "low",
+      confidence: analysis.overallRisk,
+      detectedPatterns: analysis.regexDetections,
+      aiAnalysis: analysis.aiAnalysis,
+      action: analysis.overallRisk > 0.8 ? "blocked" : analysis.overallRisk > 0.5 ? "warned" : "allowed"
+    })
+  } catch (error) {
+    console.error("Sensitive data analysis error:", error)
+    res.status(500).json({ error: "Internal server error" })
+  }
+})
+
+// Analytics dashboard endpoint
+app.get("/api/analytics/dashboard", authenticateToken, requireRole(["admin", "manager"]), async (req, res) => {
+  try {
+    const organizationId = req.user.organizationId
+
+    const detectionStats = await pool.query(
+      `SELECT COUNT(*) as total_detections FROM sensitive_detections WHERE organization_id = $1`,
+      [organizationId]
+    )
+
+    res.json({
+      detectionStats: detectionStats.rows[0],
+      timestamp: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error("Analytics error:", error)
+    res.status(500).json({ error: "Internal server error" })
+  }
+})
+
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`)
+})
     }
 
     res.json({
