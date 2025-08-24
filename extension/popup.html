@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      width: 350px;
+      min-height: 400px;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f8f9fa;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+    
+    .header h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+    }
+    
+    .content {
+      padding: 20px;
+    }
+    
+    .login-form {
+      display: none;
+    }
+    
+    .login-form.active {
+      display: block;
+    }
+    
+    .dashboard {
+      display: none;
+    }
+    
+    .dashboard.active {
+      display: block;
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+      color: #495057;
+    }
+    
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ced4da;
+      border-radius: 6px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    
+    .btn {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      transition: background 0.2s;
+    }
+    
+    .btn:hover {
+      background: #5a6fd8;
+    }
+    
+    .btn:disabled {
+      background: #6c757d;
+      cursor: not-allowed;
+    }
+    
+    .btn-secondary {
+      background: #6c757d;
+      margin-top: 10px;
+    }
+    
+    .btn-secondary:hover {
+      background: #5a6268;
+    }
+    
+    .status-card {
+      background: white;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 15px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .status-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    
+    .status-active {
+      background: #28a745;
+    }
+    
+    .status-inactive {
+      background: #dc3545;
+    }
+    
+    .status-warning {
+      background: #ffc107;
+    }
+    
+    .user-info {
+      background: white;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 15px;
+    }
+    
+    .user-info h3 {
+      margin: 0 0 10px 0;
+      font-size: 16px;
+      color: #495057;
+    }
+    
+    .user-info p {
+      margin: 5px 0;
+      font-size: 14px;
+      color: #6c757d;
+    }
+    
+    .license-info {
+      background: #e3f2fd;
+      border-left: 4px solid #2196f3;
+      padding: 15px;
+      margin-bottom: 15px;
+      border-radius: 0 8px 8px 0;
+    }
+    
+    .error-message {
+      background: #f8d7da;
+      color: #721c24;
+      padding: 10px;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      font-size: 14px;
+    }
+    
+    .success-message {
+      background: #d4edda;
+      color: #155724;
+      padding: 10px;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      font-size: 14px;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 20px;
+    }
+    
+    .spinner {
+      border: 2px solid #f3f3f3;
+      border-top: 2px solid #667eea;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      margin-right: 10px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .quick-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    
+    .quick-action-btn {
+      background: white;
+      border: 1px solid #dee2e6;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    
+    .quick-action-btn:hover {
+      background: #f8f9fa;
+      border-color: #667eea;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🛡️ Enterprise Security</h1>
+  </div>
+  
+  <div class="content">
+    <!-- Loading State -->
+    <div id="loading" class="loading">
+      <div class="spinner"></div>
+      Initializing...
+    </div>
+    
+    <!-- Login Form -->
+    <div id="loginForm" class="login-form">
+      <div id="errorMessage" class="error-message" style="display: none;"></div>
+      
+      <div class="form-group">
+        <label for="organizationDomain">Organization Domain</label>
+        <input type="text" id="organizationDomain" placeholder="company.com">
+      </div>
+      
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" placeholder="user@company.com">
+      </div>
+      
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="Enter your password">
+      </div>
+      
+      <button id="loginBtn" class="btn">Sign In</button>
+    </div>
+    
+    <!-- Dashboard -->
+    <div id="dashboard" class="dashboard">
+      <div class="user-info">
+        <h3 id="userName">Loading...</h3>
+        <p><strong>Email:</strong> <span id="userEmail">-</span></p>
+        <p><strong>Role:</strong> <span id="userRole">-</span></p>
+        <p><strong>Organization:</strong> <span id="userOrg">-</span></p>
+      </div>
+      
+      <div class="license-info">
+        <h4 style="margin: 0 0 10px 0;">License Status</h4>
+        <p><span id="licenseStatus" class="status-indicator"></span><span id="licenseStatusText">Checking...</span></p>
+        <p><strong>Type:</strong> <span id="licenseType">-</span></p>
+        <p><strong>Seats:</strong> <span id="licenseSeats">-</span></p>
+      </div>
+      
+      <div class="status-card">
+        <h4 style="margin: 0 0 10px 0;">Security Status</h4>
+        <p><span id="monitoringStatus" class="status-indicator"></span>Real-time Monitoring: <span id="monitoringText">Active</span></p>
+        <p><span id="detectionStatus" class="status-indicator"></span>Sensitive Data Detection: <span id="detectionText">Enabled</span></p>
+      </div>
+      
+      <div class="quick-actions">
+        <button class="quick-action-btn" id="analyzePageBtn">
+          📊 Analyze Page
+        </button>
+        <button class="quick-action-btn" id="viewLogsBtn">
+          📋 View Logs
+        </button>
+        <button class="quick-action-btn" id="settingsBtn">
+          ⚙️ Settings
+        </button>
+        <button class="quick-action-btn" id="helpBtn">
+          ❓ Help
+        </button>
+      </div>
+      
+      <button id="logoutBtn" class="btn btn-secondary">Sign Out</button>
+    </div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
