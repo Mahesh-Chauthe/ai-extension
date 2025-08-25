@@ -17,45 +17,9 @@ spec:
       - name: backend-api
         image: node:18-alpine
         command: ["sh", "-c"]
-        args: ["echo 'Backend placeholder - replace with actual image'; sleep 3600"]
+        args: ["-c", "while true; do sleep 3600; done"]
         ports:
         - containerPort: 3000
-        env:
-        - name: NODE_ENV
-          valueFrom:
-            configMapKeyRef:
-              name: extension-config
-              key: NODE_ENV
-        - name: PORT
-          valueFrom:
-            configMapKeyRef:
-              name: extension-config
-              key: PORT
-        - name: DATABASE_URL
-          valueFrom:
-            configMapKeyRef:
-              name: extension-config
-              key: DATABASE_URL
-        - name: REDIS_URL
-          valueFrom:
-            configMapKeyRef:
-              name: extension-config
-              key: REDIS_URL
-        - name: JWT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: extension-secrets
-              key: JWT_SECRET
-        - name: OPENAI_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: extension-secrets
-              key: OPENAI_API_KEY
-        - name: ENCRYPTION_KEY
-          valueFrom:
-            secretKeyRef:
-              name: extension-secrets
-              key: ENCRYPTION_KEY
         envFrom:
         - configMapRef:
             name: extension-config
