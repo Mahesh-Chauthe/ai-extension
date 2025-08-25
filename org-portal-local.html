@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Organization Portal</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+    <div id="app">
+        <!-- Login Screen -->
+        <div id="loginScreen" class="min-h-screen flex items-center justify-center">
+            <div class="bg-white p-8 rounded-lg shadow-lg w-96">
+                <div class="text-center mb-6">
+                    <i class="fas fa-building text-4xl text-green-600 mb-4"></i>
+                    <h1 class="text-2xl font-bold text-gray-800">Organization Portal</h1>
+                    <p class="text-gray-600">Manage Users & Extensions</p>
+                </div>
+                <form id="loginForm">
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">Access Token</label>
+                        <input type="text" id="accessToken" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-green-500" placeholder="Enter organization access token" required>
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">Admin Email</label>
+                        <input type="email" id="adminEmail" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-green-500" placeholder="admin@yourorg.com" required>
+                    </div>
+                    <button type="submit" class="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition duration-200">
+                        <i class="fas fa-sign-in-alt mr-2"></i>Access Portal
+                    </button>
+                </form>
+                <div class="mt-4 p-3 bg-blue-50 rounded-lg">
+                    <p class="text-xs text-blue-700">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        Get your access token from the Master Portal
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard -->
+        <div id="dashboard" class="hidden">
+            <nav class="bg-green-600 text-white p-4">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h1 class="text-xl font-bold"><i class="fas fa-building mr-2"></i><span id="orgName">Organization Portal</span></h1>
+                        <p class="text-sm opacity-75" id="adminInfo"></p>
+                    </div>
+                    <button id="logoutBtn" class="bg-green-700 px-4 py-2 rounded hover:bg-green-800">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                    </button>
+                </div>
+            </nav>
+
+            <div class="container mx-auto p-6">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <div class="flex items-center">
+                            <i class="fas fa-users text-3xl text-blue-600 mr-4"></i>
+                            <div>
+                                <h3 class="text-lg font-semibold">Total Users</h3>
+                                <p id="totalUsers" class="text-2xl font-bold text-blue-600">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <div class="flex items-center">
+                            <i class="fas fa-user-check text-3xl text-green-600 mr-4"></i>
+                            <div>
+                                <h3 class="text-lg font-semibold">Active Users</h3>
+                                <p id="activeUsers" class="text-2xl font-bold text-green-600">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <div class="flex items-center">
+                            <i class="fas fa-search text-3xl text-purple-600 mr-4"></i>
+                            <div>
+                                <h3 class="text-lg font-semibold">Total Scans</h3>
+                                <p id="totalScans" class="text-2xl font-bold text-purple-600">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <div class="flex items-center">
+                            <i class="fas fa-shield-alt text-3xl text-red-600 mr-4"></i>
+                            <div>
+                                <h3 class="text-lg font-semibold">Threats Blocked</h3>
+                                <p id="threatsBlocked" class="text-2xl font-bold text-red-600">0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow">
+                    <div class="p-6 border-b">
+                        <div class="flex justify-between items-center">
+                            <h2 class="text-xl font-semibold">Users & Extension Tokens</h2>
+                            <button id="addUserBtn" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                                <i class="fas fa-user-plus mr-2"></i>Add User
+                            </button>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div id="usersList" class="space-y-4"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add User Modal -->
+        <div id="addUserModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+            <div class="bg-white p-6 rounded-lg w-96">
+                <h3 class="text-lg font-semibold mb-4">Add New User</h3>
+                <form id="addUserForm">
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">Full Name</label>
+                        <input type="text" id="userName" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-green-500" required>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">Email</label>
+                        <input type="email" id="userEmail" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-green-500" required>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">Role</label>
+                        <select id="userRole" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-green-500">
+                            <option value="user">User</option>
+                            <option value="manager">Manager</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                    <div class="flex justify-end space-x-2">
+                        <button type="button" id="cancelAddUser" class="px-4 py-2 text-gray-600 border rounded hover:bg-gray-50">Cancel</button>
+                        <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Create User</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080/api';
+        let authToken = '';
+        let orgAccessToken = '';
+
+        // Login functionality
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const accessToken = document.getElementById('accessToken').value;
+            const email = document.getElementById('adminEmail').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/org/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ accessToken, email })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    authToken = data.token;
+                    orgAccessToken = accessToken;
+                    document.getElementById('orgName').textContent = data.organization + ' Portal';
+                    document.getElementById('adminInfo').textContent = `Logged in as: ${email}`;
+                    showDashboard();
+                    loadDashboardData();
+                } else {
+                    const error = await response.json();
+                    alert(error.error || 'Login failed');
+                }
+            } catch (error) {
+                alert('Login failed: ' + error.message);
+            }
+        });
+
+        // Show dashboard
+        function showDashboard() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+        }
+
+        // Load dashboard data
+        async function loadDashboardData() {
+            await Promise.all([loadUsers(), loadAnalytics()]);
+        }
+
+        // Load users
+        async function loadUsers() {
+            try {
+                const response = await fetch(`${API_BASE}/org/users`, {
+                    headers: { 'Authorization': `Bearer ${orgAccessToken}` }
+                });
+                const users = await response.json();
+                
+                const usersList = document.getElementById('usersList');
+                usersList.innerHTML = users.map(user => `
+                    <div class="border rounded-lg p-4">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="font-semibold text-lg">${user.name}</h3>
+                                <p class="text-gray-600">${user.email}</p>
+                                <span class="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm mt-1">${user.role}</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="inline-block bg-green-100 text-green-800 px-2 py-1 rounded text-sm">${user.status}</span>
+                                <div class="mt-2">
+                                    <p class="text-xs text-gray-500">Extension Token:</p>
+                                    <code class="text-xs bg-gray-100 px-2 py-1 rounded block mt-1">${user.extensionToken}</code>
+                                    <button onclick="copyToken('${user.extensionToken}')" class="text-xs text-blue-600 hover:text-blue-800 mt-1">
+                                        <i class="fas fa-copy mr-1"></i>Copy
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Failed to load users:', error);
+            }
+        }
+
+        // Load analytics
+        async function loadAnalytics() {
+            try {
+                const response = await fetch(`${API_BASE}/org/analytics`, {
+                    headers: { 'Authorization': `Bearer ${orgAccessToken}` }
+                });
+                const analytics = await response.json();
+                
+                document.getElementById('totalUsers').textContent = analytics.totalUsers;
+                document.getElementById('activeUsers').textContent = analytics.activeUsers;
+                document.getElementById('totalScans').textContent = analytics.totalScans;
+                document.getElementById('threatsBlocked').textContent = analytics.threatsBlocked;
+            } catch (error) {
+                console.error('Failed to load analytics:', error);
+            }
+        }
+
+        // Copy token function
+        function copyToken(token) {
+            navigator.clipboard.writeText(token).then(() => {
+                alert('Token copied to clipboard!');
+            });
+        }
+
+        // Add user modal
+        document.getElementById('addUserBtn').addEventListener('click', () => {
+            document.getElementById('addUserModal').classList.remove('hidden');
+        });
+
+        document.getElementById('cancelAddUser').addEventListener('click', () => {
+            document.getElementById('addUserModal').classList.add('hidden');
+        });
+
+        document.getElementById('addUserForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('userName').value;
+            const email = document.getElementById('userEmail').value;
+            const role = document.getElementById('userRole').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/org/users`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${orgAccessToken}`
+                    },
+                    body: JSON.stringify({ name, email, role })
+                });
+
+                if (response.ok) {
+                    document.getElementById('addUserModal').classList.add('hidden');
+                    document.getElementById('addUserForm').reset();
+                    loadDashboardData();
+                } else {
+                    alert('Failed to create user');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        });
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            authToken = '';
+            orgAccessToken = '';
+            document.getElementById('dashboard').classList.add('hidden');
+            document.getElementById('loginScreen').classList.remove('hidden');
+        });
+    </script>
+</body>
+</html>
