@@ -15,7 +15,9 @@ spec:
     spec:
       containers:
       - name: admin-dashboard
-        image: extension-frontend:latest
+        image: node:18-alpine
+        command: ["sh", "-c"]
+        args: ["echo 'Frontend placeholder - replace with actual image'; sleep 3600"]
         ports:
         - containerPort: 3000
         env:
