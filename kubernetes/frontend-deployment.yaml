@@ -17,7 +17,7 @@ spec:
       - name: admin-dashboard
         image: node:18-alpine
         command: ["sh", "-c"]
-        args: ["echo 'Frontend placeholder - replace with actual image'; sleep 3600"]
+        args: ["sleep", "infinity"]
         ports:
         - containerPort: 3000
         env:

@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-schema
+  namespace: extension-system
+data:
+  schema.sql: |
+    -- Basic schema for extension system
+    CREATE TABLE IF NOT EXISTS organizations (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        domain VARCHAR(255) UNIQUE,
+        status VARCHAR(50) DEFAULT 'active',
+        total_seats INTEGER DEFAULT 10,
+        used_seats INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        first_name VARCHAR(100),
+        last_name VARCHAR(100),
+        role VARCHAR(50) DEFAULT 'user',
+        organization_id INTEGER REFERENCES organizations(id),
+        status VARCHAR(50) DEFAULT 'active',
+        last_login TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS sensitive_patterns (
+        id SERIAL PRIMARY KEY,
+        pattern_name VARCHAR(255) NOT NULL,
+        regex_pattern TEXT NOT NULL,
+        severity VARCHAR(50) DEFAULT 'medium',
+        description TEXT,
+        organization_id INTEGER REFERENCES organizations(id),
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS sensitive_detections (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        organization_id INTEGER REFERENCES organizations(id),
+        content_hash VARCHAR(255),
+        detected_patterns JSONB,
+        severity VARCHAR(50),
+        url TEXT,
+        action_taken VARCHAR(50),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS audit_logs (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        organization_id INTEGER REFERENCES organizations(id),
+        action VARCHAR(255) NOT NULL,
+        details JSONB,
+        ip_address INET,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Insert default data
+    INSERT INTO organizations (name, domain, total_seats) 
+    VALUES ('Default Organization', 'localhost', 100) 
+    ON CONFLICT (domain) DO NOTHING;
+
+    INSERT INTO users (email, password_hash, first_name, last_name, role, organization_id)
+    VALUES ('admin@localhost', '$2b$10$example.hash.here', 'Admin', 'User', 'admin', 1)
+    ON CONFLICT (email) DO NOTHING;
