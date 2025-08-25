@@ -233,10 +233,8 @@
             }
         };
 
-        // Killercoda API URL - replace with your actual URL
-        const API_BASE = window.location.hostname.includes('killercoda') 
-            ? `https://${window.location.hostname.split('-')[0]}-8080-${window.location.hostname.split('-').slice(1).join('-')}/api`
-            : 'http://localhost:8080/api';
+        // Killercoda API URL
+        const API_BASE = 'https://8e25379052cf-10-244-3-142-30264.papa.r.killercoda.com/api';
 
         // Login functionality
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
