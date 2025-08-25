@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Organization Admin Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f8fafc; }
+        .login-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .login-card { background: white; padding: 3rem; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 400px; width: 100%; }
+        .dashboard { display: none; }
+        .header { background: #059669; color: white; padding: 1rem 2rem; }
+        .nav { display: flex; gap: 2rem; margin-top: 1rem; }
+        .nav-item { color: #d1fae5; cursor: pointer; padding: 0.5rem 1rem; border-radius: 6px; }
+        .nav-item:hover, .nav-item.active { background: #047857; color: white; }
+        .container { max-width: 1200px; margin: 2rem auto; padding: 0 2rem; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; }
+        .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .btn { background: #059669; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 8px; cursor: pointer; }
+        .btn:hover { background: #047857; }
+        .btn-danger { background: #ef4444; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+        .form-group input, .form-group select { width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 6px; }
+        .table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        .table th, .table td { padding: 1rem; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        .table th { background: #f8fafc; font-weight: 600; }
+        .badge { padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; }
+        .badge-success { background: #dcfce7; color: #166534; }
+        .badge-warning { background: #fef3c7; color: #92400e; }
+        .stat-number { font-size: 2.5rem; font-weight: bold; color: #059669; text-align: center; }
+        .stat-label { color: #64748b; margin-top: 0.5rem; text-align: center; }
+        .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: white; padding: 2rem; border-radius: 12px; max-width: 500px; width: 90%; }
+    </style>
+</head>
+<body>
+    <!-- Login Form -->
+    <div id="loginContainer" class="login-container">
+        <div class="login-card">
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <h1>🏢 Organization Portal</h1>
+                <p>Admin Dashboard Login</p>
+            </div>
+            
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>Organization Domain</label>
+                    <input type="text" id="orgDomain" placeholder="company.com" required>
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="email" placeholder="admin@company.com" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="password" required>
+                </div>
+                <button type="submit" class="btn" style="width: 100%;">Sign In</button>
+            </form>
+            
+            <div style="text-align: center; margin-top: 2rem; color: #64748b; font-size: 0.9rem;">
+                <p>Organization Admin Access Only</p>
+                <p>Contact Master Admin for account setup</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Organization Dashboard -->
+    <div id="dashboard" class="dashboard">
+        <div class="header">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1>🏢 <span id="orgName">Organization</span> Dashboard</h1>
+                    <p>Admin Panel - <span id="userName">Admin User</span></p>
+                </div>
+                <button class="btn" onclick="logout()" style="background: rgba(255,255,255,0.2);">Logout</button>
+            </div>
+            <div class="nav">
+                <div class="nav-item active" onclick="showView('overview')">Overview</div>
+                <div class="nav-item" onclick="showView('users')">Users</div>
+                <div class="nav-item" onclick="showView('extensions')">Extensions</div>
+                <div class="nav-item" onclick="showView('security')">Security</div>
+                <div class="nav-item" onclick="showView('settings')">Settings</div>
+            </div>
+        </div>
+
+        <div class="container">
+            <!-- Overview -->
+            <div id="overviewView">
+                <h2 style="margin-bottom: 2rem;">Organization Overview</h2>
+                <div class="grid">
+                    <div class="card">
+                        <h3>Users</h3>
+                        <div class="stat-number" id="userCount">5</div>
+                        <div class="stat-label">Active Users</div>
+                        <p style="margin-top: 1rem;">Seats: <span id="seatInfo">5/100</span></p>
+                    </div>
+                    <div class="card">
+                        <h3>Extensions</h3>
+                        <div class="stat-number" id="extensionCount">3</div>
+                        <div class="stat-label">Active Installations</div>
+                    </div>
+                    <div class="card">
+                        <h3>Security Alerts</h3>
+                        <div class="stat-number" id="alertCount">2</div>
+                        <div class="stat-label">This Week</div>
+                    </div>
+                    <div class="card">
+                        <h3>Compliance</h3>
+                        <div class="stat-number">98%</div>
+                        <div class="stat-label">Score</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Users Management -->
+            <div id="usersView" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                    <h2>User Management</h2>
+                    <button class="btn" onclick="showCreateUserModal()">Create User</button>
+                </div>
+                
+                <div class="card">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Status</th>
+                                <th>Last Active</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTable">
+                            <tr>
+                                <td>John Doe</td>
+                                <td>john@company.com</td>
+                                <td><span class="badge badge-success">Manager</span></td>
+                                <td><span class="badge badge-success">Active</span></td>
+                                <td>2 hours ago</td>
+                                <td>
+                                    <button class="btn" style="margin-right: 0.5rem;">Edit</button>
+                                    <button class="btn btn-danger">Disable</button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Jane Smith</td>
+                                <td>jane@company.com</td>
+                                <td><span class="badge badge-warning">User</span></td>
+                                <td><span class="badge badge-success">Active</span></td>
+                                <td>1 day ago</td>
+                                <td>
+                                    <button class="btn" style="margin-right: 0.5rem;">Edit</button>
+                                    <button class="btn btn-danger">Disable</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Extensions -->
+            <div id="extensionsView" style="display: none;">
+                <h2 style="margin-bottom: 2rem;">Extension Management</h2>
+                <div class="card">
+                    <h3>Extension Deployments</h3>
+                    <p>Total Installations: <strong>3</strong></p>
+                    <p>Version 1.0: 3 users</p>
+                    <p>Last Update: 2 days ago</p>
+                    <button class="btn" style="margin-top: 1rem;">Deploy Update</button>
+                </div>
+            </div>
+
+            <!-- Security -->
+            <div id="securityView" style="display: none;">
+                <h2 style="margin-bottom: 2rem;">Security Monitoring</h2>
+                <div class="grid">
+                    <div class="card">
+                        <h3>Recent Detections</h3>
+                        <p>• Credit card detected - Blocked</p>
+                        <p>• API key found - Warned</p>
+                        <p>• Email addresses - Allowed</p>
+                    </div>
+                    <div class="card">
+                        <h3>Policies</h3>
+                        <p>AI Chatbots: <strong>Warn</strong></p>
+                        <p>Sensitive Data: <strong>Block</strong></p>
+                        <p>File Uploads: <strong>Monitor</strong></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings -->
+            <div id="settingsView" style="display: none;">
+                <h2 style="margin-bottom: 2rem;">Organization Settings</h2>
+                <div class="card">
+                    <h3>Organization Details</h3>
+                    <div class="form-group">
+                        <label>Organization Name</label>
+                        <input type="text" id="orgNameInput" value="Demo Organization">
+                    </div>
+                    <div class="form-group">
+                        <label>Domain</label>
+                        <input type="text" id="domainInput" value="demo.localhost" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Seat Limit</label>
+                        <input type="number" id="seatLimit" value="100" readonly>
+                    </div>
+                    <button class="btn">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create User Modal -->
+    <div id="createUserModal" class="modal">
+        <div class="modal-content">
+            <h3>Create New User</h3>
+            <form id="createUserForm">
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="newUserEmail" required>
+                </div>
+                <div class="form-group">
+                    <label>First Name</label>
+                    <input type="text" id="newUserFirstName" required>
+                </div>
+                <div class="form-group">
+                    <label>Last Name</label>
+                    <input type="text" id="newUserLastName" required>
+                </div>
+                <div class="form-group">
+                    <label>Role</label>
+                    <select id="newUserRole" required>
+                        <option value="">Select Role</option>
+                        <option value="manager">Manager</option>
+                        <option value="user">User</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="newUserPassword" required>
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="submit" class="btn">Create User</button>
+                    <button type="button" class="btn btn-danger" onclick="closeCreateUserModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080';
+        let currentUser = null;
+
+        // Login functionality
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const orgDomain = document.getElementById('orgDomain').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, organizationDomain: orgDomain })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    currentUser = data.user;
+                    localStorage.setItem('authToken', data.token);
+                    
+                    // Show dashboard
+                    document.getElementById('loginContainer').style.display = 'none';
+                    document.getElementById('dashboard').style.display = 'block';
+                    
+                    // Update UI with user info
+                    document.getElementById('orgName').textContent = currentUser.organization.name;
+                    document.getElementById('userName').textContent = `${currentUser.firstName} ${currentUser.lastName}`;
+                    
+                    loadDashboardData();
+                } else {
+                    alert('Invalid credentials');
+                }
+            } catch (error) {
+                alert('Login failed: ' + error.message);
+            }
+        });
+
+        // Load dashboard data
+        async function loadDashboardData() {
+            try {
+                const token = localStorage.getItem('authToken');
+                const response = await fetch(`${API_BASE}/api/analytics/dashboard`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('userCount').textContent = data.activeUsers || 5;
+                    document.getElementById('alertCount').textContent = data.detectionStats?.total_detections || 2;
+                }
+            } catch (error) {
+                console.error('Failed to load dashboard data:', error);
+            }
+        }
+
+        // Navigation
+        function showView(viewName) {
+            // Hide all views
+            document.querySelectorAll('[id$="View"]').forEach(view => {
+                view.style.display = 'none';
+            });
+            
+            // Show selected view
+            document.getElementById(viewName + 'View').style.display = 'block';
+            
+            // Update nav
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+
+        // User management
+        function showCreateUserModal() {
+            document.getElementById('createUserModal').style.display = 'flex';
+        }
+
+        function closeCreateUserModal() {
+            document.getElementById('createUserModal').style.display = 'none';
+        }
+
+        document.getElementById('createUserForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const userData = {
+                email: document.getElementById('newUserEmail').value,
+                firstName: document.getElementById('newUserFirstName').value,
+                lastName: document.getElementById('newUserLastName').value,
+                role: document.getElementById('newUserRole').value,
+                password: document.getElementById('newUserPassword').value
+            };
+
+            try {
+                const token = localStorage.getItem('authToken');
+                const response = await fetch(`${API_BASE}/api/org/users`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(userData)
+                });
+
+                if (response.ok) {
+                    alert('User created successfully!');
+                    closeCreateUserModal();
+                    // Refresh users list
+                    loadDashboardData();
+                } else {
+                    alert('Failed to create user');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        });
+
+        // Logout
+        function logout() {
+            localStorage.removeItem('authToken');
+            currentUser = null;
+            document.getElementById('loginContainer').style.display = 'flex';
+            document.getElementById('dashboard').style.display = 'none';
+        }
+
+        // Check if already logged in
+        window.addEventListener('load', () => {
+            const token = localStorage.getItem('authToken');
+            if (token) {
+                // Verify token and show dashboard
+                // For demo, just show login form
+            }
+        });
+    </script>
+</body>
+</html>

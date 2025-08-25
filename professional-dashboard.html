@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Security Admin Dashboard</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f8fafc; }
+        .header { background: #1e293b; color: white; padding: 1rem 2rem; }
+        .nav { display: flex; gap: 2rem; margin-top: 1rem; }
+        .nav-item { color: #cbd5e1; cursor: pointer; padding: 0.5rem 1rem; border-radius: 6px; }
+        .nav-item:hover, .nav-item.active { background: #334155; color: white; }
+        .container { max-width: 1400px; margin: 2rem auto; padding: 0 2rem; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; }
+        .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .btn { background: #3b82f6; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 8px; cursor: pointer; }
+        .btn:hover { background: #2563eb; }
+        .btn-danger { background: #ef4444; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+        .form-group input, .form-group select { width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 6px; }
+        .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: white; padding: 2rem; border-radius: 12px; max-width: 500px; width: 90%; }
+        .table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        .table th, .table td { padding: 1rem; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        .table th { background: #f8fafc; font-weight: 600; }
+        .badge { padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; }
+        .badge-success { background: #dcfce7; color: #166534; }
+        .badge-warning { background: #fef3c7; color: #92400e; }
+        .stat-number { font-size: 2.5rem; font-weight: bold; color: #3b82f6; text-align: center; }
+        .stat-label { color: #64748b; margin-top: 0.5rem; text-align: center; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        const API_BASE = 'http://localhost:8080';
+
+        function App() {
+            const [currentView, setCurrentView] = useState('dashboard');
+            const [organizations, setOrganizations] = useState([
+                { id: 1, name: 'Demo Organization', domain: 'demo.localhost', status: 'active', totalSeats: 100, usedSeats: 5 },
+                { id: 2, name: 'Test Corp', domain: 'test.com', status: 'active', totalSeats: 50, usedSeats: 12 }
+            ]);
+            const [users, setUsers] = useState([
+                { id: 1, email: 'admin@demo.localhost', firstName: 'Org', lastName: 'Admin', role: 'org_admin', organizationId: 1, status: 'active' },
+                { id: 2, email: 'user@demo.localhost', firstName: 'Test', lastName: 'User', role: 'user', organizationId: 1, status: 'active' }
+            ]);
+            const [showModal, setShowModal] = useState(false);
+            const [modalType, setModalType] = useState('');
+
+            const createOrganization = async (orgData) => {
+                try {
+                    const response = await fetch(`${API_BASE}/api/master/organizations`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(orgData)
+                    });
+                    
+                    if (response.ok) {
+                        alert('Organization created successfully!');
+                        setShowModal(false);
+                    } else {
+                        alert('Failed to create organization');
+                    }
+                } catch (error) {
+                    alert('Error: ' + error.message);
+                }
+            };
+
+            const createUser = async (userData) => {
+                try {
+                    const response = await fetch(`${API_BASE}/api/org/users`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(userData)
+                    });
+                    
+                    if (response.ok) {
+                        alert('User created successfully!');
+                        setShowModal(false);
+                    } else {
+                        alert('Failed to create user');
+                    }
+                } catch (error) {
+                    alert('Error: ' + error.message);
+                }
+            };
+
+            return (
+                <div>
+                    <div className="header">
+                        <h1>🛡️ Enterprise Security Admin Dashboard</h1>
+                        <p>Master Admin Panel - Organization Management & RBAC</p>
+                        <div className="nav">
+                            <div className={`nav-item ${currentView === 'dashboard' ? 'active' : ''}`} onClick={() => setCurrentView('dashboard')}>Dashboard</div>
+                            <div className={`nav-item ${currentView === 'organizations' ? 'active' : ''}`} onClick={() => setCurrentView('organizations')}>Organizations</div>
+                            <div className={`nav-item ${currentView === 'users' ? 'active' : ''}`} onClick={() => setCurrentView('users')}>Users</div>
+                            <div className={`nav-item ${currentView === 'rbac' ? 'active' : ''}`} onClick={() => setCurrentView('rbac')}>RBAC</div>
+                            <div className={`nav-item ${currentView === 'analytics' ? 'active' : ''}`} onClick={() => setCurrentView('analytics')}>Analytics</div>
+                        </div>
+                    </div>
+
+                    <div className="container">
+                        {currentView === 'dashboard' && <Dashboard />}
+                        {currentView === 'organizations' && <Organizations organizations={organizations} onCreateOrg={() => { setModalType('organization'); setShowModal(true); }} />}
+                        {currentView === 'users' && <Users users={users} organizations={organizations} onCreateUser={() => { setModalType('user'); setShowModal(true); }} />}
+                        {currentView === 'rbac' && <RBAC />}
+                        {currentView === 'analytics' && <Analytics />}
+                    </div>
+
+                    {showModal && <Modal type={modalType} organizations={organizations} onClose={() => setShowModal(false)} onSubmit={modalType === 'organization' ? createOrganization : createUser} />}
+                </div>
+            );
+        }
+
+        function Dashboard() {
+            return (
+                <div>
+                    <h2 style={{ marginBottom: '2rem' }}>System Overview</h2>
+                    <div className="grid">
+                        <div className="card">
+                            <h3>Organizations</h3>
+                            <div className="stat-number">2</div>
+                            <div className="stat-label">Active Organizations</div>
+                        </div>
+                        <div className="card">
+                            <h3>Total Users</h3>
+                            <div className="stat-number">15</div>
+                            <div className="stat-label">Registered Users</div>
+                        </div>
+                        <div className="card">
+                            <h3>Extensions</h3>
+                            <div className="stat-number">8</div>
+                            <div className="stat-label">Active Installations</div>
+                        </div>
+                        <div className="card">
+                            <h3>Security Alerts</h3>
+                            <div className="stat-number">3</div>
+                            <div className="stat-label">Today's Detections</div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function Organizations({ organizations, onCreateOrg }) {
+            return (
+                <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                        <h2>Organizations</h2>
+                        <button className="btn" onClick={onCreateOrg}>Create Organization</button>
+                    </div>
+                    
+                    <div className="card">
+                        <table className="table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Domain</th>
+                                    <th>Seats</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {organizations.map(org => (
+                                    <tr key={org.id}>
+                                        <td>{org.name}</td>
+                                        <td>{org.domain}</td>
+                                        <td>{org.usedSeats}/{org.totalSeats}</td>
+                                        <td><span className="badge badge-success">{org.status}</span></td>
+                                        <td>
+                                            <button className="btn" style={{ marginRight: '0.5rem' }}>Edit</button>
+                                            <button className="btn btn-danger">Disable</button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        }
+
+        function Users({ users, organizations, onCreateUser }) {
+            return (
+                <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                        <h2>Users</h2>
+                        <button className="btn" onClick={onCreateUser}>Create User</button>
+                    </div>
+                    
+                    <div className="card">
+                        <table className="table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Organization</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {users.map(user => {
+                                    const org = organizations.find(o => o.id === user.organizationId);
+                                    return (
+                                        <tr key={user.id}>
+                                            <td>{user.firstName} {user.lastName}</td>
+                                            <td>{user.email}</td>
+                                            <td><span className="badge badge-warning">{user.role.replace('_', ' ')}</span></td>
+                                            <td>{org?.name || 'N/A'}</td>
+                                            <td><span className="badge badge-success">{user.status}</span></td>
+                                            <td>
+                                                <button className="btn" style={{ marginRight: '0.5rem' }}>Edit</button>
+                                                <button className="btn btn-danger">Disable</button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        }
+
+        function RBAC() {
+            return (
+                <div>
+                    <h2 style={{ marginBottom: '2rem' }}>Role-Based Access Control</h2>
+                    <div className="grid">
+                        <div className="card">
+                            <h3>Master Admin</h3>
+                            <p>• Create/manage organizations</p>
+                            <p>• System-wide settings</p>
+                            <p>• Global analytics</p>
+                            <p>• Master configuration</p>
+                        </div>
+                        <div className="card">
+                            <h3>Organization Admin</h3>
+                            <p>• Create/manage users</p>
+                            <p>• Organization settings</p>
+                            <p>• View org analytics</p>
+                            <p>• Manage extensions</p>
+                        </div>
+                        <div className="card">
+                            <h3>Manager</h3>
+                            <p>• View team analytics</p>
+                            <p>• Manage team users</p>
+                            <p>• Configure policies</p>
+                            <p>• Review detections</p>
+                        </div>
+                        <div className="card">
+                            <h3>User</h3>
+                            <p>• Use extension</p>
+                            <p>• View own activity</p>
+                            <p>• Basic settings</p>
+                            <p>• Report issues</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function Analytics() {
+            return (
+                <div>
+                    <h2 style={{ marginBottom: '2rem' }}>Analytics & Reports</h2>
+                    <div className="grid">
+                        <div className="card">
+                            <h3>Security Detections</h3>
+                            <p>Last 30 days: 45 detections</p>
+                            <p>Critical: 3 | High: 12 | Medium: 20 | Low: 10</p>
+                        </div>
+                        <div className="card">
+                            <h3>Extension Usage</h3>
+                            <p>Total Installs: 150</p>
+                            <p>Active Today: 89</p>
+                            <p>Version 1.0: 95% adoption</p>
+                        </div>
+                        <div className="card">
+                            <h3>Top Organizations</h3>
+                            <p>1. Demo Organization (50 users)</p>
+                            <p>2. Test Corp (25 users)</p>
+                            <p>3. Sample Inc (15 users)</p>
+                        </div>
+                        <div className="card">
+                            <h3>System Health</h3>
+                            <p>Uptime: 99.9%</p>
+                            <p>Response Time: 45ms</p>
+                            <p>Error Rate: 0.01%</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function Modal({ type, organizations, onClose, onSubmit }) {
+            const [formData, setFormData] = useState({});
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                onSubmit(formData);
+            };
+
+            return (
+                <div className="modal" onClick={onClose}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()}>
+                        <h3>{type === 'organization' ? 'Create Organization' : 'Create User'}</h3>
+                        <form onSubmit={handleSubmit}>
+                            {type === 'organization' ? (
+                                <>
+                                    <div className="form-group">
+                                        <label>Organization Name</label>
+                                        <input type="text" required onChange={e => setFormData({...formData, name: e.target.value})} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Domain</label>
+                                        <input type="text" required onChange={e => setFormData({...formData, domain: e.target.value})} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Total Seats</label>
+                                        <input type="number" required onChange={e => setFormData({...formData, totalSeats: parseInt(e.target.value)})} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Admin Email</label>
+                                        <input type="email" required onChange={e => setFormData({...formData, adminEmail: e.target.value})} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Admin Password</label>
+                                        <input type="password" required onChange={e => setFormData({...formData, adminPassword: e.target.value})} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Admin First Name</label>
+                                        <input type="text" required onChange={e => setFormData({...formData, adminFirstName: e.target.value})} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Admin Last Name</label>
+                                        <input type="text" required onChange={e => setFormData({...formData, adminLastName: e.target.value})} />
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="form-group">
+                                        <label>Organization</label>
+                                        <select required onChange={e => setFormData({...formData, organizationId: parseInt(e.target.value)})}>
+                                            <option value="">Select Organization</option>
+                                            {organizations.map(org => (
+                                                <option key={org.id} value={org.id}>{org.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Email</label>
+                                        <input type="email" required onChange={e => setFormData({...formData, email: e.target.value})} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Password</label>
+                                        <input type="password" required onChange={e => setFormData({...formData, password: e.target.value})} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>First Name</label>
+                                        <input type="text" required onChange={e => setFormData({...formData, firstName: e.target.value})} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Last Name</label>
+                                        <input type="text" required onChange={e => setFormData({...formData, lastName: e.target.value})} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Role</label>
+                                        <select required onChange={e => setFormData({...formData, role: e.target.value})}>
+                                            <option value="">Select Role</option>
+                                            <option value="org_admin">Organization Admin</option>
+                                            <option value="manager">Manager</option>
+                                            <option value="user">User</option>
+                                        </select>
+                                    </div>
+                                </>
+                            )}
+                            <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+                                <button type="submit" className="btn">Create</button>
+                                <button type="button" className="btn btn-danger" onClick={onClose}>Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>

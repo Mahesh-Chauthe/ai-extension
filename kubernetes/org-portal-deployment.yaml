@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: org-portal
+  namespace: extension-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: org-portal
+  template:
+    metadata:
+      labels:
+        app: org-portal
+    spec:
+      containers:
+      - name: org-portal
+        image: node:18-alpine
+        command: ["sh", "-c"]
+        args: ["echo 'const http = require(\"http\"); const fs = require(\"fs\"); const server = http.createServer((req,res) => { res.writeHead(200, {\"Content-Type\":\"text/html\"}); res.end(\"<!DOCTYPE html><html><head><title>Organization Portal</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f8fafc}.login-container{min-height:100vh;display:flex;align-items:center;justify-content:center}.login-card{background:white;padding:3rem;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.1);max-width:400px;width:100%}.form-group{margin-bottom:1rem}.form-group label{display:block;margin-bottom:0.5rem;font-weight:500}.form-group input{width:100%;padding:0.75rem;border:1px solid #d1d5db;border-radius:6px}.btn{background:#059669;color:white;padding:0.75rem 1.5rem;border:none;border-radius:8px;cursor:pointer;width:100%}.btn:hover{background:#047857}</style></head><body><div class=\\\"login-container\\\"><div class=\\\"login-card\\\"><div style=\\\"text-align:center;margin-bottom:2rem\\\"><h1>\ud83c\udfe2 Organization Portal</h1><p>Admin Dashboard Login</p></div><form action=\\\"#\\\" method=\\\"post\\\"><div class=\\\"form-group\\\"><label>Organization Domain</label><input type=\\\"text\\\" placeholder=\\\"company.com\\\" required></div><div class=\\\"form-group\\\"><label>Email</label><input type=\\\"email\\\" placeholder=\\\"admin@company.com\\\" required></div><div class=\\\"form-group\\\"><label>Password</label><input type=\\\"password\\\" required></div><button type=\\\"submit\\\" class=\\\"btn\\\">Sign In to Dashboard</button></form><div style=\\\"text-align:center;margin-top:2rem;color:#64748b;font-size:0.9rem\\\"><p>Organization Admin Access Only</p><p>API: POST /api/auth/login</p><p>Backend: localhost:8080</p></div></div></div></body></html>\"); }); server.listen(3000, \"0.0.0.0\", () => console.log(\"Organization Portal ready\"));' > server.js && node server.js"]
+        ports:
+        - containerPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: org-portal-service
+  namespace: extension-system
+spec:
+  selector:
+    app: org-portal
+  ports:
+  - name: http
+    port: 8082
+    targetPort: 3000

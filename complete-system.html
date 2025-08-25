@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Security System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f8fafc; }
+        .portal-selector { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .portal-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; max-width: 800px; }
+        .portal-card { background: white; padding: 3rem; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center; cursor: pointer; transition: transform 0.2s; }
+        .portal-card:hover { transform: translateY(-4px); }
+        .portal-icon { font-size: 4rem; margin-bottom: 1rem; }
+        .portal-title { font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem; }
+        .portal-desc { color: #64748b; margin-bottom: 2rem; }
+        .btn { background: #3b82f6; color: white; padding: 0.75rem 2rem; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; }
+        .btn-master { background: #7c3aed; }
+        .btn-org { background: #059669; }
+        .btn-user { background: #dc2626; }
+        
+        .login-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; display: none; }
+        .login-card { background: white; padding: 3rem; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 400px; width: 100%; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+        .form-group input, .form-group select { width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 6px; }
+        
+        .dashboard { display: none; }
+        .header { color: white; padding: 1rem 2rem; }
+        .header-master { background: #7c3aed; }
+        .header-org { background: #059669; }
+        .header-user { background: #dc2626; }
+        .nav { display: flex; gap: 2rem; margin-top: 1rem; }
+        .nav-item { color: rgba(255,255,255,0.8); cursor: pointer; padding: 0.5rem 1rem; border-radius: 6px; }
+        .nav-item:hover, .nav-item.active { background: rgba(255,255,255,0.2); color: white; }
+        .container { max-width: 1400px; margin: 2rem auto; padding: 0 2rem; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; }
+        .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .stat-number { font-size: 2.5rem; font-weight: bold; text-align: center; }
+        .stat-label { color: #64748b; margin-top: 0.5rem; text-align: center; }
+        .table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        .table th, .table td { padding: 1rem; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        .table th { background: #f8fafc; font-weight: 600; }
+        .badge { padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; }
+        .badge-success { background: #dcfce7; color: #166534; }
+        .badge-warning { background: #fef3c7; color: #92400e; }
+        .badge-danger { background: #fee2e2; color: #991b1b; }
+        .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: white; padding: 2rem; border-radius: 12px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <!-- Portal Selector -->
+    <div id="portalSelector" class="portal-selector">
+        <div>
+            <h1 style="text-align: center; margin-bottom: 3rem; color: #1e293b;">🛡️ Enterprise Security System</h1>
+            <div class="portal-grid">
+                <div class="portal-card" onclick="showLogin('master')">
+                    <div class="portal-icon">👑</div>
+                    <div class="portal-title">Master Admin</div>
+                    <div class="portal-desc">System-wide management, create organizations, global settings</div>
+                    <button class="btn btn-master">Access Master Portal</button>
+                </div>
+                
+                <div class="portal-card" onclick="showLogin('org')">
+                    <div class="portal-icon">🏢</div>
+                    <div class="portal-title">Organization Admin</div>
+                    <div class="portal-desc">Manage users, deploy extensions, organization settings</div>
+                    <button class="btn btn-org">Access Org Portal</button>
+                </div>
+                
+                <div class="portal-card" onclick="showLogin('user')">
+                    <div class="portal-icon">👤</div>
+                    <div class="portal-title">End User</div>
+                    <div class="portal-desc">Extension usage, personal settings, activity monitoring</div>
+                    <button class="btn btn-user">Access User Portal</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Container -->
+    <div id="loginContainer" class="login-container">
+        <div class="login-card">
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <h2 id="loginTitle">Login</h2>
+                <p id="loginSubtitle">Enter your credentials</p>
+            </div>
+            
+            <form id="loginForm">
+                <div class="form-group" id="orgDomainGroup" style="display: none;">
+                    <label>Organization Domain</label>
+                    <input type="text" id="orgDomain" placeholder="company.com">
+                </div>
+                <div class="form-group" id="masterKeyGroup" style="display: none;">
+                    <label>Master Key</label>
+                    <input type="password" id="masterKey" placeholder="Master system key">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="email" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="password" required>
+                </div>
+                <button type="submit" class="btn" id="loginBtn" style="width: 100%;">Sign In</button>
+            </form>
+            
+            <div style="text-align: center; margin-top: 2rem;">
+                <button onclick="showPortalSelector()" style="background: none; border: none; color: #3b82f6; cursor: pointer;">← Back to Portal Selection</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="dashboard" class="dashboard">
+        <div id="dashboardHeader" class="header">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1 id="dashboardTitle">Dashboard</h1>
+                    <p id="dashboardSubtitle">Welcome</p>
+                </div>
+                <button class="btn" onclick="logout()" style="background: rgba(255,255,255,0.2);">Logout</button>
+            </div>
+            <div class="nav" id="dashboardNav">
+                <!-- Navigation items will be populated based on role -->
+            </div>
+        </div>
+
+        <div class="container" id="dashboardContent">
+            <!-- Content will be populated based on role and view -->
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="createModal" class="modal">
+        <div class="modal-content">
+            <h3 id="modalTitle">Create</h3>
+            <form id="createForm">
+                <div id="modalFields">
+                    <!-- Form fields will be populated dynamically -->
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="submit" class="btn">Create</button>
+                    <button type="button" class="btn" onclick="closeModal()" style="background: #64748b;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080';
+        let currentUser = null;
+        let currentRole = null;
+        let currentView = 'overview';
+
+        // Sample data for demonstration
+        const sampleData = {
+            organizations: [
+                { id: 1, name: 'TechCorp Inc', domain: 'techcorp.com', status: 'active', totalSeats: 100, usedSeats: 45, plan: 'enterprise' },
+                { id: 2, name: 'StartupXYZ', domain: 'startupxyz.io', status: 'active', totalSeats: 25, usedSeats: 12, plan: 'professional' },
+                { id: 3, name: 'MegaCorp Ltd', domain: 'megacorp.com', status: 'active', totalSeats: 500, usedSeats: 287, plan: 'enterprise' }
+            ],
+            users: [
+                { id: 1, email: 'admin@techcorp.com', firstName: 'John', lastName: 'Admin', role: 'org_admin', organizationId: 1, status: 'active' },
+                { id: 2, email: 'manager@techcorp.com', firstName: 'Jane', lastName: 'Manager', role: 'manager', organizationId: 1, status: 'active' },
+                { id: 3, email: 'user1@techcorp.com', firstName: 'Bob', lastName: 'User', role: 'user', organizationId: 1, status: 'active' },
+                { id: 4, email: 'admin@startupxyz.io', firstName: 'Alice', lastName: 'Startup', role: 'org_admin', organizationId: 2, status: 'active' }
+            ],
+            extensions: [
+                { id: 1, organizationId: 1, version: '1.2.0', activeUsers: 42, lastUpdate: '2024-01-15', status: 'deployed' },
+                { id: 2, organizationId: 2, version: '1.1.0', activeUsers: 10, lastUpdate: '2024-01-10', status: 'deployed' },
+                { id: 3, organizationId: 3, version: '1.2.0', activeUsers: 280, lastUpdate: '2024-01-15', status: 'deployed' }
+            ],
+            detections: [
+                { id: 1, organizationId: 1, type: 'credit_card', severity: 'critical', action: 'blocked', timestamp: '2024-01-20 10:30' },
+                { id: 2, organizationId: 1, type: 'api_key', severity: 'high', action: 'warned', timestamp: '2024-01-20 09:15' },
+                { id: 3, organizationId: 2, type: 'email', severity: 'medium', action: 'logged', timestamp: '2024-01-20 08:45' }
+            ]
+        };
+
+        // Portal Selection
+        function showLogin(role) {
+            currentRole = role;
+            document.getElementById('portalSelector').style.display = 'none';
+            document.getElementById('loginContainer').style.display = 'flex';
+            
+            const titles = {
+                master: { title: '👑 Master Admin Login', subtitle: 'System Administrator Access' },
+                org: { title: '🏢 Organization Login', subtitle: 'Organization Administrator Access' },
+                user: { title: '👤 User Login', subtitle: 'End User Access' }
+            };
+            
+            document.getElementById('loginTitle').textContent = titles[role].title;
+            document.getElementById('loginSubtitle').textContent = titles[role].subtitle;
+            
+            // Show/hide fields based on role
+            document.getElementById('orgDomainGroup').style.display = role !== 'master' ? 'block' : 'none';
+            document.getElementById('masterKeyGroup').style.display = role === 'master' ? 'block' : 'none';
+            
+            // Update button color
+            const btn = document.getElementById('loginBtn');
+            btn.className = `btn ${role === 'master' ? 'btn-master' : role === 'org' ? 'btn-org' : 'btn-user'}`;
+        }
+
+        function showPortalSelector() {
+            document.getElementById('portalSelector').style.display = 'flex';
+            document.getElementById('loginContainer').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'none';
+        }
+
+        // Login handling
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const orgDomain = document.getElementById('orgDomain').value;
+            const masterKey = document.getElementById('masterKey').value;
+
+            // Simulate login (replace with actual API calls)
+            if (currentRole === 'master' && email === 'master@system.com' && masterKey === 'master123') {
+                currentUser = { id: 0, email, firstName: 'Master', lastName: 'Admin', role: 'master_admin' };
+                showDashboard();
+            } else if (currentRole === 'org' && email.includes('@')) {
+                const org = sampleData.organizations.find(o => o.domain === orgDomain);
+                if (org) {
+                    currentUser = { 
+                        id: 1, email, firstName: 'Org', lastName: 'Admin', role: 'org_admin',
+                        organization: org
+                    };
+                    showDashboard();
+                } else {
+                    alert('Organization not found');
+                }
+            } else if (currentRole === 'user') {
+                currentUser = { 
+                    id: 2, email, firstName: 'End', lastName: 'User', role: 'user',
+                    organization: sampleData.organizations[0]
+                };
+                showDashboard();
+            } else {
+                alert('Invalid credentials');
+            }
+        });
+
+        // Dashboard
+        function showDashboard() {
+            document.getElementById('loginContainer').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+            
+            const header = document.getElementById('dashboardHeader');
+            const title = document.getElementById('dashboardTitle');
+            const subtitle = document.getElementById('dashboardSubtitle');
+            
+            if (currentUser.role === 'master_admin') {
+                header.className = 'header header-master';
+                title.textContent = '👑 Master Admin Dashboard';
+                subtitle.textContent = `System Administrator - ${currentUser.firstName} ${currentUser.lastName}`;
+                setupMasterNavigation();
+            } else if (currentUser.role === 'org_admin') {
+                header.className = 'header header-org';
+                title.textContent = `🏢 ${currentUser.organization.name} Dashboard`;
+                subtitle.textContent = `Organization Admin - ${currentUser.firstName} ${currentUser.lastName}`;
+                setupOrgNavigation();
+            } else {
+                header.className = 'header header-user';
+                title.textContent = '👤 User Dashboard';
+                subtitle.textContent = `${currentUser.firstName} ${currentUser.lastName} - ${currentUser.organization.name}`;
+                setupUserNavigation();
+            }
+            
+            showView('overview');
+        }
+
+        // Navigation setup
+        function setupMasterNavigation() {
+            const nav = document.getElementById('dashboardNav');
+            nav.innerHTML = `
+                <div class="nav-item active" onclick="showView('overview')">System Overview</div>
+                <div class="nav-item" onclick="showView('organizations')">Organizations</div>
+                <div class="nav-item" onclick="showView('analytics')">Global Analytics</div>
+                <div class="nav-item" onclick="showView('settings')">System Settings</div>
+            `;
+        }
+
+        function setupOrgNavigation() {
+            const nav = document.getElementById('dashboardNav');
+            nav.innerHTML = `
+                <div class="nav-item active" onclick="showView('overview')">Overview</div>
+                <div class="nav-item" onclick="showView('users')">Users</div>
+                <div class="nav-item" onclick="showView('extensions')">Extensions</div>
+                <div class="nav-item" onclick="showView('security')">Security</div>
+                <div class="nav-item" onclick="showView('settings')">Settings</div>
+            `;
+        }
+
+        function setupUserNavigation() {
+            const nav = document.getElementById('dashboardNav');
+            nav.innerHTML = `
+                <div class="nav-item active" onclick="showView('overview')">Dashboard</div>
+                <div class="nav-item" onclick="showView('activity')">My Activity</div>
+                <div class="nav-item" onclick="showView('extension')">Extension</div>
+                <div class="nav-item" onclick="showView('settings')">Settings</div>
+            `;
+        }
+
+        // View management
+        function showView(viewName) {
+            currentView = viewName;
+            
+            // Update navigation
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Show content based on role and view
+            const content = document.getElementById('dashboardContent');
+            
+            if (currentUser.role === 'master_admin') {
+                showMasterView(viewName, content);
+            } else if (currentUser.role === 'org_admin') {
+                showOrgView(viewName, content);
+            } else {
+                showUserView(viewName, content);
+            }
+        }
+
+        // Master Admin Views
+        function showMasterView(view, container) {
+            switch(view) {
+                case 'overview':
+                    container.innerHTML = `
+                        <h2 style="margin-bottom: 2rem;">System Overview</h2>
+                        <div class="grid">
+                            <div class="card">
+                                <h3>Organizations</h3>
+                                <div class="stat-number" style="color: #7c3aed;">${sampleData.organizations.length}</div>
+                                <div class="stat-label">Active Organizations</div>
+                            </div>
+                            <div class="card">
+                                <h3>Total Users</h3>
+                                <div class="stat-number" style="color: #7c3aed;">${sampleData.users.length}</div>
+                                <div class="stat-label">Registered Users</div>
+                            </div>
+                            <div class="card">
+                                <h3>Extensions</h3>
+                                <div class="stat-number" style="color: #7c3aed;">${sampleData.extensions.length}</div>
+                                <div class="stat-label">Deployed Extensions</div>
+                            </div>
+                            <div class="card">
+                                <h3>Security Events</h3>
+                                <div class="stat-number" style="color: #7c3aed;">${sampleData.detections.length}</div>
+                                <div class="stat-label">Recent Detections</div>
+                            </div>
+                        </div>
+                    `;
+                    break;
+                case 'organizations':
+                    container.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                            <h2>Organizations</h2>
+                            <button class="btn btn-master" onclick="showCreateModal('organization')">Create Organization</button>
+                        </div>
+                        <div class="card">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Domain</th>
+                                        <th>Plan</th>
+                                        <th>Users</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${sampleData.organizations.map(org => `
+                                        <tr>
+                                            <td>${org.name}</td>
+                                            <td>${org.domain}</td>
+                                            <td><span class="badge badge-warning">${org.plan}</span></td>
+                                            <td>${org.usedSeats}/${org.totalSeats}</td>
+                                            <td><span class="badge badge-success">${org.status}</span></td>
+                                            <td>
+                                                <button class="btn" style="margin-right: 0.5rem;">Edit</button>
+                                                <button class="btn" style="background: #ef4444;">Suspend</button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                    break;
+            }
+        }
+
+        // Organization Admin Views
+        function showOrgView(view, container) {
+            const orgId = currentUser.organization.id;
+            const orgUsers = sampleData.users.filter(u => u.organizationId === orgId);
+            const orgExtension = sampleData.extensions.find(e => e.organizationId === orgId);
+            const orgDetections = sampleData.detections.filter(d => d.organizationId === orgId);
+
+            switch(view) {
+                case 'overview':
+                    container.innerHTML = `
+                        <h2 style="margin-bottom: 2rem;">Organization Overview</h2>
+                        <div class="grid">
+                            <div class="card">
+                                <h3>Users</h3>
+                                <div class="stat-number" style="color: #059669;">${orgUsers.length}</div>
+                                <div class="stat-label">Active Users</div>
+                                <p style="margin-top: 1rem;">Seats: ${currentUser.organization.usedSeats}/${currentUser.organization.totalSeats}</p>
+                            </div>
+                            <div class="card">
+                                <h3>Extension</h3>
+                                <div class="stat-number" style="color: #059669;">${orgExtension ? orgExtension.activeUsers : 0}</div>
+                                <div class="stat-label">Active Installations</div>
+                                <p style="margin-top: 1rem;">Version: ${orgExtension ? orgExtension.version : 'Not deployed'}</p>
+                            </div>
+                            <div class="card">
+                                <h3>Security</h3>
+                                <div class="stat-number" style="color: #059669;">${orgDetections.length}</div>
+                                <div class="stat-label">Recent Detections</div>
+                            </div>
+                            <div class="card">
+                                <h3>Compliance</h3>
+                                <div class="stat-number" style="color: #059669;">98%</div>
+                                <div class="stat-label">Score</div>
+                            </div>
+                        </div>
+                    `;
+                    break;
+                case 'users':
+                    container.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                            <h2>User Management</h2>
+                            <button class="btn btn-org" onclick="showCreateModal('user')">Create User</button>
+                        </div>
+                        <div class="card">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th>Role</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${orgUsers.map(user => `
+                                        <tr>
+                                            <td>${user.firstName} ${user.lastName}</td>
+                                            <td>${user.email}</td>
+                                            <td><span class="badge badge-${user.role === 'org_admin' ? 'warning' : 'success'}">${user.role.replace('_', ' ')}</span></td>
+                                            <td><span class="badge badge-success">${user.status}</span></td>
+                                            <td>
+                                                <button class="btn" style="margin-right: 0.5rem;">Edit</button>
+                                                <button class="btn" style="background: #ef4444;">Disable</button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                    break;
+                case 'extensions':
+                    container.innerHTML = `
+                        <h2 style="margin-bottom: 2rem;">Extension Management</h2>
+                        <div class="grid">
+                            <div class="card">
+                                <h3>Current Deployment</h3>
+                                <p><strong>Version:</strong> ${orgExtension ? orgExtension.version : 'Not deployed'}</p>
+                                <p><strong>Active Users:</strong> ${orgExtension ? orgExtension.activeUsers : 0}</p>
+                                <p><strong>Last Update:</strong> ${orgExtension ? orgExtension.lastUpdate : 'Never'}</p>
+                                <p><strong>Status:</strong> <span class="badge badge-success">${orgExtension ? orgExtension.status : 'Not deployed'}</span></p>
+                                <button class="btn btn-org" style="margin-top: 1rem;">Deploy Update</button>
+                            </div>
+                            <div class="card">
+                                <h3>Extension Settings</h3>
+                                <p><strong>Auto-update:</strong> Enabled</p>
+                                <p><strong>Policy:</strong> Strict</p>
+                                <p><strong>Notifications:</strong> Enabled</p>
+                                <button class="btn btn-org" style="margin-top: 1rem;">Configure</button>
+                            </div>
+                        </div>
+                    `;
+                    break;
+            }
+        }
+
+        // User Views
+        function showUserView(view, container) {
+            switch(view) {
+                case 'overview':
+                    container.innerHTML = `
+                        <h2 style="margin-bottom: 2rem;">My Dashboard</h2>
+                        <div class="grid">
+                            <div class="card">
+                                <h3>Extension Status</h3>
+                                <div class="stat-number" style="color: #dc2626;">Active</div>
+                                <div class="stat-label">Protection Enabled</div>
+                            </div>
+                            <div class="card">
+                                <h3>Today's Activity</h3>
+                                <div class="stat-number" style="color: #dc2626;">12</div>
+                                <div class="stat-label">Pages Scanned</div>
+                            </div>
+                            <div class="card">
+                                <h3>Detections</h3>
+                                <div class="stat-number" style="color: #dc2626;">2</div>
+                                <div class="stat-label">Warnings Today</div>
+                            </div>
+                            <div class="card">
+                                <h3>Compliance</h3>
+                                <div class="stat-number" style="color: #dc2626;">100%</div>
+                                <div class="stat-label">Score</div>
+                            </div>
+                        </div>
+                    `;
+                    break;
+            }
+        }
+
+        // Modal management
+        function showCreateModal(type) {
+            document.getElementById('createModal').style.display = 'flex';
+            document.getElementById('modalTitle').textContent = `Create ${type.charAt(0).toUpperCase() + type.slice(1)}`;
+            
+            const fields = document.getElementById('modalFields');
+            
+            if (type === 'organization') {
+                fields.innerHTML = `
+                    <div class="form-group">
+                        <label>Organization Name</label>
+                        <input type="text" name="name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Domain</label>
+                        <input type="text" name="domain" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Total Seats</label>
+                        <input type="number" name="totalSeats" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Plan</label>
+                        <select name="plan" required>
+                            <option value="basic">Basic</option>
+                            <option value="professional">Professional</option>
+                            <option value="enterprise">Enterprise</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Admin Email</label>
+                        <input type="email" name="adminEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Admin Password</label>
+                        <input type="password" name="adminPassword" required>
+                    </div>
+                `;
+            } else if (type === 'user') {
+                fields.innerHTML = `
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" name="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label>First Name</label>
+                        <input type="text" name="firstName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Last Name</label>
+                        <input type="text" name="lastName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Role</label>
+                        <select name="role" required>
+                            <option value="user">User</option>
+                            <option value="manager">Manager</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" name="password" required>
+                    </div>
+                `;
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('createModal').style.display = 'none';
+        }
+
+        // Create form submission
+        document.getElementById('createForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            
+            // Simulate API call
+            console.log('Creating:', data);
+            alert('Created successfully!');
+            closeModal();
+            
+            // Refresh current view
+            showView(currentView);
+        });
+
+        function logout() {
+            currentUser = null;
+            currentRole = null;
+            showPortalSelector();
+        }
+
+        // Initialize
+        window.addEventListener('load', () => {
+            showPortalSelector();
+        });
+    </script>
+</body>
+</html>
