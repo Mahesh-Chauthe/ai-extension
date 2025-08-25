@@ -233,17 +233,43 @@
             }
         };
 
+        // Killercoda API URL - replace with your actual URL
+        const API_BASE = window.location.hostname.includes('killercoda') 
+            ? `https://${window.location.hostname.split('-')[0]}-8080-${window.location.hostname.split('-').slice(1).join('-')}/api`
+            : 'http://localhost:8080/api';
+
         // Login functionality
-        document.getElementById('loginForm').addEventListener('submit', (e) => {
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
 
-            const account = masterAccounts[email];
-            if (account && account.password === password) {
-                showDashboard();
-            } else {
-                alert('Invalid credentials. Use "Forgot Username/Password?" to recover.');
+            try {
+                const response = await fetch(`${API_BASE}/master/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                if (response.ok) {
+                    showDashboard();
+                } else {
+                    // Fallback to offline mode
+                    const account = masterAccounts[email];
+                    if (account && account.password === password) {
+                        showDashboard();
+                    } else {
+                        alert('Invalid credentials. Use "Forgot Username/Password?" to recover.');
+                    }
+                }
+            } catch (error) {
+                // Offline mode
+                const account = masterAccounts[email];
+                if (account && account.password === password) {
+                    showDashboard();
+                } else {
+                    alert('Invalid credentials. Use "Forgot Username/Password?" to recover.');
+                }
             }
         });
 
