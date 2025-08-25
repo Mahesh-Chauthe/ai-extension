@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Master Portal</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+    <div id="app">
+        <!-- Login Screen -->
+        <div id="loginScreen" class="min-h-screen flex items-center justify-center">
+            <div class="bg-white p-8 rounded-lg shadow-lg w-96">
+                <div class="text-center mb-6">
+                    <i class="fas fa-shield-alt text-4xl text-blue-600 mb-4"></i>
+                    <h1 class="text-2xl font-bold text-gray-800">Master Portal</h1>
+                    <p class="text-gray-600">Enterprise Security System</p>
+                </div>
+                <form id="loginForm">
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">Email</label>
+                        <input type="email" id="email" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500" placeholder="Enter your email">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">Password</label>
+                        <input type="password" id="password" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500" placeholder="Enter your password">
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-200">
+                        <i class="fas fa-sign-in-alt mr-2"></i>Login
+                    </button>
+                </form>
+                <div class="mt-4 text-center">
+                    <button id="forgotBtn" class="text-blue-600 hover:text-blue-800 text-sm">
+                        <i class="fas fa-key mr-1"></i>Forgot Username/Password?
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Forgot Password Screen -->
+        <div id="forgotScreen" class="hidden min-h-screen flex items-center justify-center">
+            <div class="bg-white p-8 rounded-lg shadow-lg w-96">
+                <div class="text-center mb-6">
+                    <i class="fas fa-key text-4xl text-orange-600 mb-4"></i>
+                    <h1 class="text-2xl font-bold text-gray-800">Account Recovery</h1>
+                    <p class="text-gray-600">Retrieve your credentials</p>
+                </div>
+                <form id="forgotForm">
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">Recovery Email</label>
+                        <input type="email" id="recoveryEmail" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-orange-500" placeholder="Enter recovery email">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">Security Question</label>
+                        <select id="securityQuestion" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-orange-500">
+                            <option value="">Select a question</option>
+                            <option value="company">What is your company name?</option>
+                            <option value="city">What city were you born in?</option>
+                            <option value="pet">What is your pet's name?</option>
+                        </select>
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">Answer</label>
+                        <input type="text" id="securityAnswer" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-orange-500" placeholder="Enter your answer">
+                    </div>
+                    <button type="submit" class="w-full bg-orange-600 text-white py-2 px-4 rounded-lg hover:bg-orange-700 transition duration-200">
+                        <i class="fas fa-unlock mr-2"></i>Recover Account
+                    </button>
+                </form>
+                <div class="mt-4 text-center">
+                    <button id="backToLoginBtn" class="text-blue-600 hover:text-blue-800 text-sm">
+                        <i class="fas fa-arrow-left mr-1"></i>Back to Login
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recovery Success Screen -->
+        <div id="recoveryScreen" class="hidden min-h-screen flex items-center justify-center">
+            <div class="bg-white p-8 rounded-lg shadow-lg w-96">
+                <div class="text-center mb-6">
+                    <i class="fas fa-check-circle text-4xl text-green-600 mb-4"></i>
+                    <h1 class="text-2xl font-bold text-gray-800">Account Recovered</h1>
+                    <p class="text-gray-600">Your credentials have been retrieved</p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg mb-6">
+                    <div class="mb-3">
+                        <label class="block text-gray-700 text-sm font-bold mb-1">Username:</label>
+                        <code id="recoveredEmail" class="text-blue-600 bg-white px-2 py-1 rounded border"></code>
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 text-sm font-bold mb-1">Password:</label>
+                        <code id="recoveredPassword" class="text-blue-600 bg-white px-2 py-1 rounded border"></code>
+                    </div>
+                </div>
+                <button id="useCredentialsBtn" class="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition duration-200">
+                    <i class="fas fa-sign-in-alt mr-2"></i>Use These Credentials
+                </button>
+            </div>
+        </div>
+
+        <!-- Dashboard -->
+        <div id="dashboard" class="hidden">
+            <nav class="bg-blue-600 text-white p-4">
+                <div class="flex justify-between items-center">
+                    <h1 class="text-xl font-bold"><i class="fas fa-shield-alt mr-2"></i>Enterprise Master Portal</h1>
+                    <button id="logoutBtn" class="bg-blue-700 px-4 py-2 rounded hover:bg-blue-800">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                    </button>
+                </div>
+            </nav>
+
+            <div class="container mx-auto p-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <div class="flex items-center">
+                            <i class="fas fa-building text-3xl text-blue-600 mr-4"></i>
+                            <div>
+                                <h3 class="text-lg font-semibold">Organizations</h3>
+                                <p id="orgCount" class="text-2xl font-bold text-blue-600">2</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <div class="flex items-center">
+                            <i class="fas fa-users text-3xl text-green-600 mr-4"></i>
+                            <div>
+                                <h3 class="text-lg font-semibold">Total Users</h3>
+                                <p class="text-2xl font-bold text-green-600">15</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <div class="flex items-center">
+                            <i class="fas fa-shield-alt text-3xl text-red-600 mr-4"></i>
+                            <div>
+                                <h3 class="text-lg font-semibold">Active Extensions</h3>
+                                <p class="text-2xl font-bold text-red-600">8</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow">
+                    <div class="p-6 border-b">
+                        <div class="flex justify-between items-center">
+                            <h2 class="text-xl font-semibold">Organizations</h2>
+                            <button id="addOrgBtn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                                <i class="fas fa-plus mr-2"></i>Add Organization
+                            </button>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div id="organizationsList" class="space-y-4">
+                            <div class="border rounded-lg p-4">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <h3 class="font-semibold text-lg">TechCorp Inc</h3>
+                                        <p class="text-gray-600">techcorp.com</p>
+                                        <p class="text-sm text-gray-500">Created: 2024-01-15</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="inline-block bg-green-100 text-green-800 px-2 py-1 rounded text-sm">active</span>
+                                        <div class="mt-2">
+                                            <p class="text-xs text-gray-500">Access Token:</p>
+                                            <code class="text-xs bg-gray-100 px-2 py-1 rounded">tc_a1b2c3d4e5f6g7h8</code>
+                                            <button onclick="copyToken('tc_a1b2c3d4e5f6g7h8')" class="ml-2 text-blue-600 hover:text-blue-800">
+                                                <i class="fas fa-copy"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="border rounded-lg p-4">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <h3 class="font-semibold text-lg">StartupXYZ</h3>
+                                        <p class="text-gray-600">startupxyz.com</p>
+                                        <p class="text-sm text-gray-500">Created: 2024-01-20</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="inline-block bg-green-100 text-green-800 px-2 py-1 rounded text-sm">active</span>
+                                        <div class="mt-2">
+                                            <p class="text-xs text-gray-500">Access Token:</p>
+                                            <code class="text-xs bg-gray-100 px-2 py-1 rounded">sx_z9y8x7w6v5u4t3s2</code>
+                                            <button onclick="copyToken('sx_z9y8x7w6v5u4t3s2')" class="ml-2 text-blue-600 hover:text-blue-800">
+                                                <i class="fas fa-copy"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Organization Modal -->
+        <div id="addOrgModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+            <div class="bg-white p-6 rounded-lg w-96">
+                <h3 class="text-lg font-semibold mb-4">Add New Organization</h3>
+                <form id="addOrgForm">
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">Organization Name</label>
+                        <input type="text" id="orgName" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500" required>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">Domain</label>
+                        <input type="text" id="orgDomain" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500" required>
+                    </div>
+                    <div class="flex justify-end space-x-2">
+                        <button type="button" id="cancelAddOrg" class="px-4 py-2 text-gray-600 border rounded hover:bg-gray-50">Cancel</button>
+                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Create</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Database with master admin credentials
+        const masterAccounts = {
+            'mahesh@gmail.com': {
+                password: 'Aurion#2025',
+                recoveryEmail: 'recovery@gmail.com',
+                securityAnswers: {
+                    company: 'aurion',
+                    city: 'mumbai',
+                    pet: 'buddy'
+                }
+            }
+        };
+
+        // Login functionality
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            const account = masterAccounts[email];
+            if (account && account.password === password) {
+                showDashboard();
+            } else {
+                alert('Invalid credentials. Use "Forgot Username/Password?" to recover.');
+            }
+        });
+
+        // Forgot password functionality
+        document.getElementById('forgotBtn').addEventListener('click', () => {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('forgotScreen').classList.remove('hidden');
+        });
+
+        document.getElementById('backToLoginBtn').addEventListener('click', () => {
+            document.getElementById('forgotScreen').classList.add('hidden');
+            document.getElementById('loginScreen').classList.remove('hidden');
+        });
+
+        document.getElementById('forgotForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const recoveryEmail = document.getElementById('recoveryEmail').value;
+            const question = document.getElementById('securityQuestion').value;
+            const answer = document.getElementById('securityAnswer').value.toLowerCase();
+
+            // Find account by recovery email
+            let foundAccount = null;
+            let foundEmail = null;
+            
+            for (const [email, account] of Object.entries(masterAccounts)) {
+                if (account.recoveryEmail === recoveryEmail) {
+                    foundAccount = account;
+                    foundEmail = email;
+                    break;
+                }
+            }
+
+            if (foundAccount && foundAccount.securityAnswers[question] === answer) {
+                document.getElementById('recoveredEmail').textContent = foundEmail;
+                document.getElementById('recoveredPassword').textContent = foundAccount.password;
+                document.getElementById('forgotScreen').classList.add('hidden');
+                document.getElementById('recoveryScreen').classList.remove('hidden');
+            } else {
+                alert('Invalid recovery details. Please check your information.');
+            }
+        });
+
+        document.getElementById('useCredentialsBtn').addEventListener('click', () => {
+            const email = document.getElementById('recoveredEmail').textContent;
+            const password = document.getElementById('recoveredPassword').textContent;
+            
+            document.getElementById('email').value = email;
+            document.getElementById('password').value = password;
+            
+            document.getElementById('recoveryScreen').classList.add('hidden');
+            document.getElementById('loginScreen').classList.remove('hidden');
+        });
+
+        // Show dashboard
+        function showDashboard() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+        }
+
+        // Copy token function
+        function copyToken(token) {
+            navigator.clipboard.writeText(token).then(() => {
+                alert('Token copied to clipboard!');
+            });
+        }
+
+        // Add organization modal
+        document.getElementById('addOrgBtn').addEventListener('click', () => {
+            document.getElementById('addOrgModal').classList.remove('hidden');
+        });
+
+        document.getElementById('cancelAddOrg').addEventListener('click', () => {
+            document.getElementById('addOrgModal').classList.add('hidden');
+        });
+
+        document.getElementById('addOrgForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = document.getElementById('orgName').value;
+            const domain = document.getElementById('orgDomain').value;
+            
+            const token = name.toLowerCase().substring(0,3) + '_' + Math.random().toString(36).substring(2, 18);
+            
+            const orgsList = document.getElementById('organizationsList');
+            const newOrg = document.createElement('div');
+            newOrg.className = 'border rounded-lg p-4';
+            newOrg.innerHTML = `
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="font-semibold text-lg">${name}</h3>
+                        <p class="text-gray-600">${domain}</p>
+                        <p class="text-sm text-gray-500">Created: ${new Date().toLocaleDateString()}</p>
+                    </div>
+                    <div class="text-right">
+                        <span class="inline-block bg-green-100 text-green-800 px-2 py-1 rounded text-sm">active</span>
+                        <div class="mt-2">
+                            <p class="text-xs text-gray-500">Access Token:</p>
+                            <code class="text-xs bg-gray-100 px-2 py-1 rounded">${token}</code>
+                            <button onclick="copyToken('${token}')" class="ml-2 text-blue-600 hover:text-blue-800">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            orgsList.appendChild(newOrg);
+            document.getElementById('addOrgModal').classList.add('hidden');
+            document.getElementById('addOrgForm').reset();
+            
+            const currentCount = parseInt(document.getElementById('orgCount').textContent);
+            document.getElementById('orgCount').textContent = currentCount + 1;
+        });
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            document.getElementById('dashboard').classList.add('hidden');
+            document.getElementById('loginScreen').classList.remove('hidden');
+        });
+    </script>
+</body>
+</html>
