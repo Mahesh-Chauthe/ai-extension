@@ -17,7 +17,7 @@ spec:
       - name: backend-api
         image: node:18-alpine
         command: ["sh", "-c"]
-        args: ["-c", "while true; do sleep 3600; done"]
+        args: ["-c", "npm init -y && npm install express && echo 'const express = require(\"express\"); const app = express(); app.get(\"/health\", (req,res) => res.json({status:\"ok\"})); app.get(\"/\", (req,res) => res.json({message:\"Backend running\"})); app.listen(3000, () => console.log(\"Server on port 3000\"));' > server.js && node server.js"]
         ports:
         - containerPort: 3000
         envFrom:
