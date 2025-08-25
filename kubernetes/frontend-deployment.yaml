@@ -17,7 +17,7 @@ spec:
       - name: admin-dashboard
         image: node:18-alpine
         command: ["sh", "-c"]
-        args: ["-c", "while true; do sleep 3600; done"]
+        args: ["-c", "npm init -y && npm install express && echo 'const express = require(\"express\"); const app = express(); app.get(\"/\", (req,res) => res.send(\"<h1>Enterprise Extension Frontend</h1><p>Dashboard running on port 3000</p>\")); app.listen(3000, () => console.log(\"Frontend on port 3000\"));' > server.js && node server.js"]
         ports:
         - containerPort: 3000
         env:
