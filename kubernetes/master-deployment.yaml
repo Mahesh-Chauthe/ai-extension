@@ -1,0 +1,138 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: master-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: master-api
+  namespace: master-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: master-api
+  template:
+    metadata:
+      labels:
+        app: master-api
+    spec:
+      containers:
+      - name: master-api
+        image: node:18-alpine
+        command: ["sh", "-c"]
+        args: ["apk add --no-cache git && git clone https://github.com/user/repo.git /app || echo 'const express = require(\"express\"); const cors = require(\"cors\"); const app = express(); app.use(cors()); app.use(express.json()); const organizations = []; const users = []; app.post(\"/api/master/auth/login\", (req, res) => { const { email, password } = req.body; if (email === \"master@system.com\" && password === \"master123\") { res.json({ token: \"master_token_123\", user: { email, role: \"master_admin\" } }); } else { res.status(401).json({ error: \"Invalid credentials\" }); } }); app.get(\"/api/master/organizations\", (req, res) => { res.json(organizations); }); app.post(\"/api/master/organizations\", (req, res) => { const org = { id: Date.now(), ...req.body, status: \"active\", accessToken: \"ext_\" + Math.random().toString(36).substr(2, 16) }; organizations.push(org); res.json(org); }); app.post(\"/api/validate-token\", (req, res) => { const org = organizations.find(o => o.accessToken === req.body.token); if (org) { res.json({ valid: true, organization: org }); } else { res.status(401).json({ error: \"Invalid token\" }); } }); app.get(\"/health\", (req, res) => { res.json({ status: \"ok\" }); }); app.listen(3000, () => console.log(\"Master API ready\"));' > /app/server.js && cd /app && npm init -y && npm install express cors jsonwebtoken bcrypt && node server.js"]
+        ports:
+        - containerPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: master-api-service
+  namespace: master-system
+spec:
+  selector:
+    app: master-api
+  ports:
+  - name: api
+    port: 8080
+    targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: master-portal
+  namespace: master-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: master-portal
+  template:
+    metadata:
+      labels:
+        app: master-portal
+    spec:
+      containers:
+      - name: master-portal
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: portal-content
+          mountPath: /usr/share/nginx/html
+      volumes:
+      - name: portal-content
+        configMap:
+          name: master-portal-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: master-portal-service
+  namespace: master-system
+spec:
+  selector:
+    app: master-portal
+  ports:
+  - name: web
+    port: 8090
+    targetPort: 80
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: master-portal-config
+  namespace: master-system
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Master Portal</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #0f172a; color: white; }
+            .container { max-width: 1200px; margin: 0 auto; }
+            .header { background: linear-gradient(135deg, #7c3aed, #a855f7); padding: 2rem; border-radius: 12px; margin-bottom: 2rem; }
+            .card { background: #1e293b; padding: 2rem; border-radius: 12px; margin-bottom: 1rem; }
+            .btn { background: #7c3aed; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 8px; cursor: pointer; }
+            .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>👑 Master Portal</h1>
+                <p>Enterprise Security System - Root Administration</p>
+            </div>
+            <div class="grid">
+                <div class="card">
+                    <h3>Organizations</h3>
+                    <p>Manage all organizations and their settings</p>
+                    <button class="btn" onclick="alert('Organizations management coming soon')">Manage Organizations</button>
+                </div>
+                <div class="card">
+                    <h3>Users</h3>
+                    <p>View and manage all users across organizations</p>
+                    <button class="btn" onclick="alert('User management coming soon')">Manage Users</button>
+                </div>
+                <div class="card">
+                    <h3>Extensions</h3>
+                    <p>Deploy and manage browser extensions</p>
+                    <button class="btn" onclick="alert('Extension management coming soon')">Manage Extensions</button>
+                </div>
+                <div class="card">
+                    <h3>Analytics</h3>
+                    <p>System-wide analytics and reporting</p>
+                    <button class="btn" onclick="alert('Analytics coming soon')">View Analytics</button>
+                </div>
+            </div>
+            <div class="card">
+                <h3>API Endpoints</h3>
+                <p>Master API: <a href="http://master-api-service:8080/health" style="color: #7c3aed;">http://master-api-service:8080</a></p>
+                <p>Status: <span style="color: #10b981;">✅ Online</span></p>
+            </div>
+        </div>
+    </body>
+    </html>

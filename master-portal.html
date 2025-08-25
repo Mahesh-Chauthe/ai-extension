@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Master Portal - Enterprise Security System</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #0f172a; color: white; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        .header { background: linear-gradient(135deg, #7c3aed, #a855f7); padding: 2rem; margin-bottom: 2rem; border-radius: 12px; }
+        .nav { display: flex; gap: 1rem; margin-top: 1rem; }
+        .nav-item { background: rgba(255,255,255,0.1); padding: 0.75rem 1.5rem; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+        .nav-item:hover, .nav-item.active { background: rgba(255,255,255,0.2); }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; margin-bottom: 2rem; }
+        .card { background: #1e293b; padding: 2rem; border-radius: 12px; border: 1px solid #334155; }
+        .btn { background: #7c3aed; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
+        .btn:hover { background: #6d28d9; }
+        .btn-danger { background: #dc2626; }
+        .btn-danger:hover { background: #b91c1c; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 600; }
+        .form-group input, .form-group select { width: 100%; padding: 0.75rem; border: 1px solid #475569; border-radius: 8px; background: #334155; color: white; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; }
+        .modal-content { background: #1e293b; padding: 2rem; border-radius: 12px; max-width: 500px; margin: 10% auto; }
+        .table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        .table th, .table td { padding: 1rem; text-align: left; border-bottom: 1px solid #334155; }
+        .table th { background: #334155; }
+        .status { padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+        .status.active { background: #10b981; color: white; }
+        .status.inactive { background: #6b7280; color: white; }
+        .stat-number { font-size: 2.5rem; font-weight: bold; color: #7c3aed; }
+        .stat-label { color: #94a3b8; margin-top: 0.5rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>👑 Master Portal</h1>
+            <p>Root Administrative System</p>
+            <div class="nav">
+                <div class="nav-item active" onclick="showDashboard()">Dashboard</div>
+                <div class="nav-item" onclick="showOrganizations()">Organizations</div>
+                <div class="nav-item" onclick="showUsers()">All Users</div>
+                <div class="nav-item" onclick="showExtensions()">Extensions</div>
+                <div class="nav-item" onclick="showAudit()">Audit Logs</div>
+            </div>
+        </div>
+
+        <div id="dashboard" class="section">
+            <div class="grid">
+                <div class="card">
+                    <h3>Organizations</h3>
+                    <div class="stat-number" id="orgCount">0</div>
+                    <div class="stat-label">Active Organizations</div>
+                </div>
+                <div class="card">
+                    <h3>Total Users</h3>
+                    <div class="stat-number" id="userCount">0</div>
+                    <div class="stat-label">Across All Organizations</div>
+                </div>
+                <div class="card">
+                    <h3>Extensions</h3>
+                    <div class="stat-number" id="extensionCount">1</div>
+                    <div class="stat-label">Deployed Extensions</div>
+                </div>
+                <div class="card">
+                    <h3>System Status</h3>
+                    <div class="stat-number" style="color: #10b981;">Online</div>
+                    <div class="stat-label">All Services Running</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="organizations" class="section" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <h2>Organizations Management</h2>
+                <button class="btn" onclick="showCreateOrgModal()">+ Create Organization</button>
+            </div>
+            <div class="card">
+                <table class="table" id="orgTable">
+                    <thead>
+                        <tr>
+                            <th>Organization</th>
+                            <th>Domain</th>
+                            <th>Admin</th>
+                            <th>Users</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="users" class="section" style="display: none;">
+            <h2>All Users Management</h2>
+            <div class="card">
+                <table class="table" id="userTable">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Email</th>
+                            <th>Organization</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="extensions" class="section" style="display: none;">
+            <h2>Extension Management</h2>
+            <div class="card">
+                <h3>Browser Extension Deployment</h3>
+                <p style="margin: 1rem 0; color: #94a3b8;">Manage extension versions and organization access</p>
+                <div class="form-group">
+                    <label>Extension Version</label>
+                    <input type="text" value="v1.0.0" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Deployment Status</label>
+                    <span class="status active">Active</span>
+                </div>
+                <button class="btn">Update Extension</button>
+            </div>
+        </div>
+
+        <div id="audit" class="section" style="display: none;">
+            <h2>Audit Logs</h2>
+            <div class="card">
+                <table class="table" id="auditTable">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>User</th>
+                            <th>Action</th>
+                            <th>Organization</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Organization Modal -->
+    <div id="createOrgModal" class="modal">
+        <div class="modal-content">
+            <h3>Create New Organization</h3>
+            <form id="createOrgForm">
+                <div class="form-group">
+                    <label>Organization Name</label>
+                    <input type="text" id="orgName" required>
+                </div>
+                <div class="form-group">
+                    <label>Domain</label>
+                    <input type="text" id="orgDomain" placeholder="company.com" required>
+                </div>
+                <div class="form-group">
+                    <label>Admin Email</label>
+                    <input type="email" id="adminEmail" required>
+                </div>
+                <div class="form-group">
+                    <label>User Limit</label>
+                    <input type="number" id="userLimit" value="50" required>
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="submit" class="btn">Create Organization</button>
+                    <button type="button" class="btn btn-danger" onclick="closeModal('createOrgModal')">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let organizations = [];
+        let users = [];
+        let auditLogs = [];
+
+        function showDashboard() {
+            hideAllSections();
+            document.getElementById('dashboard').style.display = 'block';
+            setActiveNav(0);
+            updateStats();
+        }
+
+        function showOrganizations() {
+            hideAllSections();
+            document.getElementById('organizations').style.display = 'block';
+            setActiveNav(1);
+            loadOrganizations();
+        }
+
+        function showUsers() {
+            hideAllSections();
+            document.getElementById('users').style.display = 'block';
+            setActiveNav(2);
+            loadUsers();
+        }
+
+        function showExtensions() {
+            hideAllSections();
+            document.getElementById('extensions').style.display = 'block';
+            setActiveNav(3);
+        }
+
+        function showAudit() {
+            hideAllSections();
+            document.getElementById('audit').style.display = 'block';
+            setActiveNav(4);
+            loadAuditLogs();
+        }
+
+        function hideAllSections() {
+            document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
+        }
+
+        function setActiveNav(index) {
+            document.querySelectorAll('.nav-item').forEach((item, i) => {
+                item.classList.toggle('active', i === index);
+            });
+        }
+
+        function showCreateOrgModal() {
+            document.getElementById('createOrgModal').style.display = 'block';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        function generateToken() {
+            return 'ext_' + Math.random().toString(36).substr(2, 16);
+        }
+
+        function generateOrgId() {
+            return 'org_' + Math.random().toString(36).substr(2, 8);
+        }
+
+        document.getElementById('createOrgForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const org = {
+                id: generateOrgId(),
+                name: document.getElementById('orgName').value,
+                domain: document.getElementById('orgDomain').value,
+                adminEmail: document.getElementById('adminEmail').value,
+                userLimit: parseInt(document.getElementById('userLimit').value),
+                status: 'active',
+                createdAt: new Date().toISOString(),
+                accessToken: generateToken(),
+                userCount: 0
+            };
+
+            organizations.push(org);
+            
+            // Create org admin user
+            const admin = {
+                id: 'user_' + Math.random().toString(36).substr(2, 8),
+                email: org.adminEmail,
+                name: 'Organization Admin',
+                role: 'org_admin',
+                organizationId: org.id,
+                organizationName: org.name,
+                status: 'active',
+                createdAt: new Date().toISOString()
+            };
+            users.push(admin);
+
+            // Add audit log
+            auditLogs.push({
+                timestamp: new Date().toISOString(),
+                user: 'Master Admin',
+                action: 'CREATE_ORGANIZATION',
+                organization: org.name,
+                details: `Created organization ${org.name} with admin ${org.adminEmail}`
+            });
+
+            closeModal('createOrgModal');
+            document.getElementById('createOrgForm').reset();
+            loadOrganizations();
+            updateStats();
+            
+            alert(`Organization created successfully!\nAccess Token: ${org.accessToken}\nProvide this token to the Organization Admin.`);
+        });
+
+        function loadOrganizations() {
+            const tbody = document.querySelector('#orgTable tbody');
+            tbody.innerHTML = '';
+            
+            organizations.forEach(org => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${org.name}</td>
+                    <td>${org.domain}</td>
+                    <td>${org.adminEmail}</td>
+                    <td>${org.userCount}/${org.userLimit}</td>
+                    <td><span class="status ${org.status}">${org.status}</span></td>
+                    <td>
+                        <button class="btn" onclick="manageOrg('${org.id}')">Manage</button>
+                        <button class="btn btn-danger" onclick="deleteOrg('${org.id}')">Delete</button>
+                    </td>
+                `;
+            });
+        }
+
+        function loadUsers() {
+            const tbody = document.querySelector('#userTable tbody');
+            tbody.innerHTML = '';
+            
+            users.forEach(user => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${user.name}</td>
+                    <td>${user.email}</td>
+                    <td>${user.organizationName}</td>
+                    <td>${user.role}</td>
+                    <td><span class="status ${user.status}">${user.status}</span></td>
+                    <td>
+                        <button class="btn" onclick="editUser('${user.id}')">Edit</button>
+                        <button class="btn btn-danger" onclick="deleteUser('${user.id}')">Delete</button>
+                    </td>
+                `;
+            });
+        }
+
+        function loadAuditLogs() {
+            const tbody = document.querySelector('#auditTable tbody');
+            tbody.innerHTML = '';
+            
+            auditLogs.forEach(log => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${new Date(log.timestamp).toLocaleString()}</td>
+                    <td>${log.user}</td>
+                    <td>${log.action}</td>
+                    <td>${log.organization}</td>
+                    <td>${log.details}</td>
+                `;
+            });
+        }
+
+        function updateStats() {
+            document.getElementById('orgCount').textContent = organizations.length;
+            document.getElementById('userCount').textContent = users.length;
+        }
+
+        function manageOrg(orgId) {
+            const org = organizations.find(o => o.id === orgId);
+            alert(`Managing ${org.name}\nAccess Token: ${org.accessToken}\nUsers: ${org.userCount}/${org.userLimit}`);
+        }
+
+        function deleteOrg(orgId) {
+            if (confirm('Delete organization? This will remove all associated users.')) {
+                organizations = organizations.filter(o => o.id !== orgId);
+                users = users.filter(u => u.organizationId !== orgId);
+                loadOrganizations();
+                updateStats();
+            }
+        }
+
+        function deleteUser(userId) {
+            if (confirm('Delete user?')) {
+                users = users.filter(u => u.id !== userId);
+                loadUsers();
+                updateStats();
+            }
+        }
+
+        // Initialize with sample data
+        window.addEventListener('load', function() {
+            // Sample organization
+            const sampleOrg = {
+                id: 'org_sample01',
+                name: 'TechCorp Inc',
+                domain: 'techcorp.com',
+                adminEmail: 'admin@techcorp.com',
+                userLimit: 100,
+                status: 'active',
+                createdAt: new Date().toISOString(),
+                accessToken: 'ext_abc123def456ghi789',
+                userCount: 3
+            };
+            organizations.push(sampleOrg);
+
+            // Sample users
+            users.push({
+                id: 'user_admin01',
+                email: 'admin@techcorp.com',
+                name: 'John Admin',
+                role: 'org_admin',
+                organizationId: sampleOrg.id,
+                organizationName: sampleOrg.name,
+                status: 'active',
+                createdAt: new Date().toISOString()
+            });
+
+            users.push({
+                id: 'user_emp01',
+                email: 'user1@techcorp.com',
+                name: 'Jane Employee',
+                role: 'user',
+                organizationId: sampleOrg.id,
+                organizationName: sampleOrg.name,
+                status: 'active',
+                createdAt: new Date().toISOString()
+            });
+
+            // Sample audit logs
+            auditLogs.push({
+                timestamp: new Date().toISOString(),
+                user: 'Master Admin',
+                action: 'CREATE_ORGANIZATION',
+                organization: sampleOrg.name,
+                details: 'Initial organization setup'
+            });
+
+            showDashboard();
+        });
+    </script>
+</body>
+</html>

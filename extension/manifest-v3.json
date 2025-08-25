@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "Enterprise Security Extension",
+  "version": "1.0.0",
+  "description": "Multi-tenant security extension with organization-based access control",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "clipboardRead",
+    "clipboardWrite"
+  ],
+  "host_permissions": [
+    "http://localhost:3000/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background-v3.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content-v3.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "action": {
+    "default_popup": "popup-v3.html",
+    "default_title": "Enterprise Security"
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}
