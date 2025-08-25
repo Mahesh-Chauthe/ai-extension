@@ -1,0 +1,416 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: enterprise-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: enterprise-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:13
+        env:
+        - name: POSTGRES_DB
+          value: enterprise_db
+        - name: POSTGRES_USER
+          value: admin
+        - name: POSTGRES_PASSWORD
+          value: password123
+        ports:
+        - containerPort: 5432
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: postgres-storage
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+  namespace: enterprise-system
+spec:
+  selector:
+    app: postgres
+  ports:
+  - name: postgres
+    port: 5432
+    targetPort: 5432
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-config
+  namespace: enterprise-system
+data:
+  init.sql: |
+    CREATE TABLE IF NOT EXISTS organizations (
+        id VARCHAR(50) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        domain VARCHAR(255) NOT NULL,
+        admin_email VARCHAR(255) NOT NULL,
+        access_token VARCHAR(255) UNIQUE NOT NULL,
+        user_limit INTEGER DEFAULT 50,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS users (
+        id VARCHAR(50) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        org_id VARCHAR(50) REFERENCES organizations(id),
+        extension_token VARCHAR(255) UNIQUE NOT NULL,
+        status VARCHAR(20) DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS extensions (
+        id VARCHAR(50) PRIMARY KEY,
+        version VARCHAR(20) NOT NULL,
+        status VARCHAR(20) DEFAULT 'active',
+        download_url TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS activity_logs (
+        id SERIAL PRIMARY KEY,
+        user_id VARCHAR(50),
+        org_id VARCHAR(50),
+        action VARCHAR(255),
+        details TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    INSERT INTO organizations (id, name, domain, admin_email, access_token) 
+    VALUES ('org_sample', 'TechCorp Inc', 'techcorp.com', 'admin@techcorp.com', 'ext_techcorp123456789')
+    ON CONFLICT (id) DO NOTHING;
+
+    INSERT INTO extensions (id, version, download_url)
+    VALUES ('ext_v1', '1.0.0', '/api/extension/download')
+    ON CONFLICT (id) DO NOTHING;
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: master-api
+  namespace: enterprise-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: master-api
+  template:
+    metadata:
+      labels:
+        app: master-api
+    spec:
+      initContainers:
+      - name: init-db
+        image: postgres:13
+        command: ['sh', '-c']
+        args:
+        - |
+          until pg_isready -h postgres-service -p 5432; do
+            echo "Waiting for postgres..."
+            sleep 2
+          done
+          echo "PostgreSQL is ready"
+          PGPASSWORD=password123 psql -h postgres-service -U admin -d enterprise_db -f /init.sql
+        volumeMounts:
+        - name: init-sql
+          mountPath: /init.sql
+          subPath: init.sql
+      containers:
+      - name: master-api
+        image: node:18-alpine
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          cat > server.js << 'EOF'
+          const http = require('http');
+          const url = require('url');
+          const crypto = require('crypto');
+          
+          // Mock database (replace with actual PostgreSQL client)
+          let organizations = {
+            'ext_techcorp123456789': {
+              id: 'org_sample',
+              name: 'TechCorp Inc',
+              domain: 'techcorp.com',
+              adminEmail: 'admin@techcorp.com',
+              accessToken: 'ext_techcorp123456789',
+              userLimit: 50,
+              users: []
+            }
+          };
+          
+          let users = {};
+          let extensions = {
+            'ext_v1': {
+              id: 'ext_v1',
+              version: '1.0.0',
+              status: 'active',
+              downloadUrl: '/api/extension/download'
+            }
+          };
+          let activityLogs = [];
+          
+          function generateSecureToken(prefix = 'usr') {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+            let token = prefix + '_';
+            for (let i = 0; i < 24; i++) {
+              token += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return token;
+          }
+          
+          function logActivity(userId, orgId, action, details) {
+            activityLogs.push({
+              id: Date.now(),
+              userId,
+              orgId,
+              action,
+              details,
+              timestamp: new Date().toISOString()
+            });
+          }
+          
+          const server = http.createServer((req, res) => {
+            const parsedUrl = url.parse(req.url, true);
+            
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+            
+            if (req.method === 'OPTIONS') {
+              res.writeHead(200);
+              res.end();
+              return;
+            }
+            
+            let body = '';
+            req.on('data', chunk => body += chunk);
+            req.on('end', () => {
+              console.log(`${req.method} ${parsedUrl.pathname}`);
+              
+              try {
+                // Organizations API
+                if (parsedUrl.pathname === '/api/organizations' && req.method === 'POST') {
+                  const data = JSON.parse(body);
+                  const token = 'ext_' + crypto.randomBytes(16).toString('hex');
+                  const org = {
+                    id: 'org_' + Date.now(),
+                    ...data,
+                    accessToken: token,
+                    users: []
+                  };
+                  organizations[token] = org;
+                  
+                  logActivity('master', 'system', 'CREATE_ORGANIZATION', `Created ${org.name}`);
+                  
+                  res.writeHead(200, {'Content-Type': 'application/json'});
+                  res.end(JSON.stringify(org));
+                  
+                } else if (parsedUrl.pathname === '/api/organizations' && req.method === 'GET') {
+                  res.writeHead(200, {'Content-Type': 'application/json'});
+                  res.end(JSON.stringify(Object.values(organizations)));
+                  
+                } else if (parsedUrl.pathname.startsWith('/api/org/')) {
+                  const token = parsedUrl.pathname.split('/')[3];
+                  const org = organizations[token];
+                  
+                  if (org) {
+                    res.writeHead(200, {'Content-Type': 'application/json'});
+                    res.end(JSON.stringify(org));
+                  } else {
+                    res.writeHead(404, {'Content-Type': 'application/json'});
+                    res.end(JSON.stringify({error: 'Organization not found'}));
+                  }
+                  
+                // Users API
+                } else if (parsedUrl.pathname === '/api/users' && req.method === 'POST') {
+                  const data = JSON.parse(body);
+                  const extensionToken = generateSecureToken('usr');
+                  const user = {
+                    id: 'user_' + Date.now(),
+                    ...data,
+                    extensionToken,
+                    status: 'active'
+                  };
+                  users[user.id] = user;
+                  
+                  if (organizations[data.orgToken]) {
+                    organizations[data.orgToken].users.push(user);
+                  }
+                  
+                  logActivity(user.id, data.orgToken, 'CREATE_USER', `Created user ${user.name}`);
+                  
+                  res.writeHead(200, {'Content-Type': 'application/json'});
+                  res.end(JSON.stringify(user));
+                  
+                } else if (parsedUrl.pathname.startsWith('/api/users/org/')) {
+                  const orgToken = parsedUrl.pathname.split('/')[4];
+                  const org = organizations[orgToken];
+                  
+                  if (org) {
+                    res.writeHead(200, {'Content-Type': 'application/json'});
+                    res.end(JSON.stringify(org.users || []));
+                  } else {
+                    res.writeHead(404, {'Content-Type': 'application/json'});
+                    res.end(JSON.stringify({error: 'Organization not found'}));
+                  }
+                  
+                } else if (parsedUrl.pathname.startsWith('/api/users/') && req.method === 'PUT') {
+                  const userId = parsedUrl.pathname.split('/')[3];
+                  const data = JSON.parse(body);
+                  
+                  if (users[userId]) {
+                    users[userId] = {...users[userId], ...data};
+                    res.writeHead(200, {'Content-Type': 'application/json'});
+                    res.end(JSON.stringify(users[userId]));
+                  } else {
+                    res.writeHead(404, {'Content-Type': 'application/json'});
+                    res.end(JSON.stringify({error: 'User not found'}));
+                  }
+                  
+                } else if (parsedUrl.pathname.startsWith('/api/users/') && req.method === 'DELETE') {
+                  const userId = parsedUrl.pathname.split('/')[3];
+                  
+                  if (users[userId]) {
+                    delete users[userId];
+                    res.writeHead(200, {'Content-Type': 'application/json'});
+                    res.end(JSON.stringify({message: 'User deleted'}));
+                  } else {
+                    res.writeHead(404, {'Content-Type': 'application/json'});
+                    res.end(JSON.stringify({error: 'User not found'}));
+                  }
+                  
+                } else if (parsedUrl.pathname.startsWith('/api/users/') && parsedUrl.pathname.includes('/regenerate-token')) {
+                  const userId = parsedUrl.pathname.split('/')[3];
+                  
+                  if (users[userId]) {
+                    users[userId].extensionToken = generateSecureToken('usr');
+                    logActivity(userId, users[userId].orgToken, 'REGENERATE_TOKEN', 'Extension token regenerated');
+                    
+                    res.writeHead(200, {'Content-Type': 'application/json'});
+                    res.end(JSON.stringify(users[userId]));
+                  } else {
+                    res.writeHead(404, {'Content-Type': 'application/json'});
+                    res.end(JSON.stringify({error: 'User not found'}));
+                  }
+                  
+                // Extensions API
+                } else if (parsedUrl.pathname === '/api/extensions' && req.method === 'GET') {
+                  res.writeHead(200, {'Content-Type': 'application/json'});
+                  res.end(JSON.stringify(Object.values(extensions)));
+                  
+                } else if (parsedUrl.pathname === '/api/extensions' && req.method === 'POST') {
+                  const data = JSON.parse(body);
+                  const ext = {
+                    id: 'ext_' + Date.now(),
+                    ...data,
+                    status: 'active'
+                  };
+                  extensions[ext.id] = ext;
+                  
+                  logActivity('master', 'system', 'UPDATE_EXTENSION', `Updated to version ${ext.version}`);
+                  
+                  res.writeHead(200, {'Content-Type': 'application/json'});
+                  res.end(JSON.stringify(ext));
+                  
+                } else if (parsedUrl.pathname === '/api/extension/download') {
+                  res.writeHead(200, {'Content-Type': 'application/zip'});
+                  res.end('Extension ZIP file content here');
+                  
+                // Token validation for extension
+                } else if (parsedUrl.pathname === '/api/validate-extension-token' && req.method === 'POST') {
+                  const data = JSON.parse(body);
+                  const user = Object.values(users).find(u => u.extensionToken === data.token);
+                  
+                  if (user) {
+                    const org = Object.values(organizations).find(o => o.accessToken === user.orgToken);
+                    res.writeHead(200, {'Content-Type': 'application/json'});
+                    res.end(JSON.stringify({
+                      valid: true,
+                      user: user,
+                      organization: org
+                    }));
+                  } else {
+                    res.writeHead(401, {'Content-Type': 'application/json'});
+                    res.end(JSON.stringify({error: 'Invalid extension token'}));
+                  }
+                  
+                // Activity logs
+                } else if (parsedUrl.pathname === '/api/activity' && req.method === 'POST') {
+                  const data = JSON.parse(body);
+                  logActivity(data.userId, data.orgId, data.action, data.details);
+                  
+                  res.writeHead(200, {'Content-Type': 'application/json'});
+                  res.end(JSON.stringify({success: true}));
+                  
+                } else if (parsedUrl.pathname.startsWith('/api/activity/org/')) {
+                  const orgToken = parsedUrl.pathname.split('/')[4];
+                  const orgLogs = activityLogs.filter(log => log.orgId === orgToken);
+                  
+                  res.writeHead(200, {'Content-Type': 'application/json'});
+                  res.end(JSON.stringify(orgLogs));
+                  
+                } else if (parsedUrl.pathname === '/api/activity' && req.method === 'GET') {
+                  res.writeHead(200, {'Content-Type': 'application/json'});
+                  res.end(JSON.stringify(activityLogs.slice(-100)));
+                  
+                } else if (parsedUrl.pathname === '/health') {
+                  res.writeHead(200, {'Content-Type': 'application/json'});
+                  res.end(JSON.stringify({status: 'ok', timestamp: new Date().toISOString()}));
+                  
+                } else {
+                  res.writeHead(404, {'Content-Type': 'application/json'});
+                  res.end(JSON.stringify({error: 'Not found'}));
+                }
+              } catch (error) {
+                console.error('Error:', error);
+                res.writeHead(500, {'Content-Type': 'application/json'});
+                res.end(JSON.stringify({error: 'Internal server error'}));
+              }
+            });
+          });
+          
+          server.listen(3000, '0.0.0.0', () => {
+            console.log('Master API running on port 3000');
+          });
+          EOF
+          
+          node server.js
+        ports:
+        - containerPort: 3000
+      volumes:
+      - name: init-sql
+        configMap:
+          name: api-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: master-api-service
+  namespace: enterprise-system
+spec:
+  selector:
+    app: master-api
+  ports:
+  - name: api
+    port: 8080
+    targetPort: 3000
+  type: NodePort

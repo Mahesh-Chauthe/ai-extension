@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: master-portal
+  namespace: enterprise-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: master-portal
+  template:
+    metadata:
+      labels:
+        app: master-portal
+    spec:
+      containers:
+      - name: master-portal
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: html-content
+          mountPath: /usr/share/nginx/html/index.html
+          subPath: index.html
+      volumes:
+      - name: html-content
+        configMap:
+          name: master-portal-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: master-portal-service
+  namespace: enterprise-system
+spec:
+  selector:
+    app: master-portal
+  ports:
+  - name: web
+    port: 8090
+    targetPort: 80
+  type: NodePort
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: org-portal
+  namespace: enterprise-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: org-portal
+  template:
+    metadata:
+      labels:
+        app: org-portal
+    spec:
+      containers:
+      - name: org-portal
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: html-content
+          mountPath: /usr/share/nginx/html/index.html
+          subPath: index.html
+      volumes:
+      - name: html-content
+        configMap:
+          name: org-portal-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: org-portal-service
+  namespace: enterprise-system
+spec:
+  selector:
+    app: org-portal
+  ports:
+  - name: web
+    port: 8091
+    targetPort: 80
+  type: NodePort

@@ -1,436 +1,434 @@
-// Enhanced background script with local AI analysis and S3 integration
-const chrome = window.chrome
-
-// Import local analyzer
-importScripts('local-analyzer.js')
-
-class ExtensionBackgroundService {
-  constructor() {
-    this.apiBaseUrl = 'http://localhost:8080'
-    this.isAuthenticated = false
-    this.userConfig = null
-    this.s3Config = null
-    this.localAnalyzer = new LocalSensitiveDataAnalyzer()
-    
-    this.init()
-  }
-
-  async init() {
-    // Listen for extension installation
-    chrome.runtime.onInstalled.addListener((details) => {
-      if (details.reason === 'install') {
-        this.handleFirstInstall()
-      }
-    })
-
-    // Listen for messages from content scripts
-    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-      this.handleMessage(request, sender, sendResponse)
-      return true // Keep message channel open for async responses
-    })
-
-    // Initialize authentication check
-    await this.checkAuthentication()
-  }
-
-  async handleFirstInstall() {
-    // Open onboarding page
-    chrome.tabs.create({
-      url: chrome.runtime.getURL('onboarding.html')
-    })
-  }
-
-  async handleMessage(request, sender, sendResponse) {
-    try {
-      switch (request.action) {
-        case 'checkAuth':
-          const authStatus = await this.checkAuthentication()
-          sendResponse({ authenticated: authStatus })
-          break
-
-        case 'analyzeSensitiveData':
-          const analysis = await this.analyzeSensitiveData(request.data)
-          sendResponse(analysis)
-          break
-
-        case 'logSecurityEvent':
-          await this.logSecurityEvent(request.data)
-          sendResponse({ success: true })
-          break
-
-        case 'uploadToS3':
-          const uploadResult = await this.uploadToS3(request.data)
-          sendResponse(uploadResult)
-          break
-
-        case 'getAIChatbotList':
-          const chatbots = await this.getAIChatbotList()
-          sendResponse({ chatbots })
-          break
-
-        default:
-          sendResponse({ error: 'Unknown action' })
-      }
-    } catch (error) {
-      console.error('Background script error:', error)
-      sendResponse({ error: error.message })
+class ExtensionBackground {
+    constructor() {
+        this.apiUrl = 'http://localhost:8080';
+        this.organizationData = null;
+        this.userData = null;
+        this.extensionToken = null;
+        this.settings = {
+            enableNotifications: true,
+            enableChatbotMonitoring: true,
+            enableFormMonitoring: true,
+            sensitivityLevel: 'medium'
+        };
+        this.init();
     }
-  }
 
-  async checkAuthentication() {
-    try {
-      const stored = await chrome.storage.local.get(['authToken', 'userConfig'])
-      
-      if (!stored.authToken) {
-        this.isAuthenticated = false
-        return false
-      }
+    init() {
+        this.setupMessageHandlers();
+        this.setupStorageHandlers();
+        this.loadStoredData();
+        this.setupPeriodicSync();
+    }
 
-      // Validate token with backend
-      const response = await fetch(`${this.apiBaseUrl}/api/auth/validate`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${stored.authToken}`,
-          'Content-Type': 'application/json'
+    setupMessageHandlers() {
+        chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+            this.handleMessage(message, sender, sendResponse);
+            return true; // Keep message channel open for async response
+        });
+    }
+
+    setupStorageHandlers() {
+        chrome.storage.onChanged.addListener((changes, namespace) => {
+            if (namespace === 'local') {
+                if (changes.extensionToken) {
+                    this.loadStoredData();
+                }
+                if (changes.enableNotifications || changes.enableChatbotMonitoring || changes.enableFormMonitoring || changes.sensitivityLevel) {
+                    this.loadSettings();
+                }
+            }
+        });
+    }
+
+    async loadStoredData() {
+        try {
+            const result = await chrome.storage.local.get(['extensionToken', 'organizationData', 'userData']);
+            this.extensionToken = result.extensionToken;
+            this.organizationData = result.organizationData;
+            this.userData = result.userData;
+            
+            if (this.organizationData) {
+                this.updateBadge('ON');
+            } else {
+                this.updateBadge('OFF');
+            }
+        } catch (error) {
+            console.error('Failed to load stored data:', error);
         }
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        this.isAuthenticated = true
-        this.userConfig = data.user
-        return true
-      } else {
-        // Token invalid, clear storage
-        await chrome.storage.local.remove(['authToken', 'userConfig'])
-        this.isAuthenticated = false
-        return false
-      }
-    } catch (error) {
-      console.error('Auth check error:', error)
-      this.isAuthenticated = false
-      return false
     }
-  }
 
-  async analyzeSensitiveData(data) {
-    try {
-      // Use local analyzer instead of external API
-      const context = {
-        url: data.url,
-        source: data.source,
-        userAgent: navigator.userAgent,
-        timestamp: new Date().toISOString(),
-        extensionVersion: chrome.runtime.getManifest().version
-      }
-
-      // Perform local analysis
-      const analysis = this.localAnalyzer.analyze(data.content, context)
-
-      // Add organization-specific context if available
-      if (this.userConfig?.organization) {
-        analysis.organization = this.userConfig.organization.name
-      }
-
-      // Log detection event locally
-      await this.logDetectionEvent({
-        analysis,
-        content: data.content.substring(0, 100) + '...', // Store only snippet for privacy
-        metadata: context
-      })
-
-      // If high-risk content detected, store evidence in S3
-      if (analysis.riskScore > 0.7) {
-        await this.storeEvidenceInS3({
-          analysis,
-          contentHash: await this.hashContent(data.content), // Store hash instead of content
-          metadata: {
-            url: data.url,
-            source: data.source,
-            timestamp: new Date().toISOString(),
-            userId: this.userConfig?.id,
-            organizationId: this.userConfig?.organization?.id
-          }
-        })
-      }
-
-      return analysis
-    } catch (error) {
-      console.error('Sensitive data analysis error:', error)
-      return {
-        hasSensitiveData: false,
-        error: error.message,
-        riskScore: 0,
-        action: 'allow'
-      }
+    async loadSettings() {
+        try {
+            const result = await chrome.storage.local.get([
+                'enableNotifications',
+                'enableChatbotMonitoring', 
+                'enableFormMonitoring',
+                'sensitivityLevel'
+            ]);
+            
+            this.settings = {
+                enableNotifications: result.enableNotifications !== false,
+                enableChatbotMonitoring: result.enableChatbotMonitoring !== false,
+                enableFormMonitoring: result.enableFormMonitoring !== false,
+                sensitivityLevel: result.sensitivityLevel || 'medium'
+            };
+        } catch (error) {
+            console.error('Failed to load settings:', error);
+        }
     }
-  }
 
-  async logSecurityEvent(eventData) {
-    try {
-      const stored = await chrome.storage.local.get(['authToken'])
-      
-      if (!stored.authToken) {
-        return
-      }
+    async handleMessage(message, sender, sendResponse) {
+        try {
+            switch (message.action) {
+                case 'authenticated':
+                    await this.handleAuthentication(message);
+                    sendResponse({ success: true });
+                    break;
 
-      await fetch(`${this.apiBaseUrl}/api/security/events`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${stored.authToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          ...eventData,
-          extensionVersion: chrome.runtime.getManifest().version,
-          userAgent: navigator.userAgent
-        })
-      })
-    } catch (error) {
-      console.error('Security event logging error:', error)
+                case 'logout':
+                    await this.handleLogout();
+                    sendResponse({ success: true });
+                    break;
+
+                case 'scanPage':
+                    const scanResult = await this.scanPageContent(message.content);
+                    sendResponse({ results: scanResult });
+                    break;
+
+                case 'logActivity':
+                    await this.logActivity(message.activity);
+                    sendResponse({ success: true });
+                    break;
+
+                case 'settingsUpdated':
+                    this.settings = message.settings;
+                    await this.notifyContentScripts('settingsUpdated', this.settings);
+                    sendResponse({ success: true });
+                    break;
+
+                case 'getAuthData':
+                    sendResponse({ 
+                        organization: this.organizationData,
+                        user: this.userData,
+                        token: this.extensionToken,
+                        settings: this.settings
+                    });
+                    break;
+
+                case 'sensitiveDataDetected':
+                    await this.handleSensitiveDataDetection(message.data, sender.tab);
+                    sendResponse({ success: true });
+                    break;
+
+                case 'chatbotBlocked':
+                    await this.handleChatbotBlocked(message.data, sender.tab);
+                    sendResponse({ success: true });
+                    break;
+
+                default:
+                    sendResponse({ error: 'Unknown action' });
+            }
+        } catch (error) {
+            console.error('Message handling error:', error);
+            sendResponse({ error: error.message });
+        }
     }
-  }
 
-  async storeEvidenceInS3(evidenceData) {
-    try {
-      const stored = await chrome.storage.local.get(['authToken'])
-      
-      if (!stored.authToken) {
-        return
-      }
-
-      // Get S3 upload URL from backend
-      const response = await fetch(`${this.apiBaseUrl}/api/storage/upload-url`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${stored.authToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          type: 'security_evidence',
-          contentType: 'application/json'
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to get upload URL')
-      }
-
-      const { uploadUrl, key } = await response.json()
-
-      // Upload evidence to S3
-      const uploadResponse = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(evidenceData)
-      })
-
-      if (uploadResponse.ok) {
-        console.log('Evidence stored in S3:', key)
+    async handleAuthentication(message) {
+        this.organizationData = message.organization;
+        this.userData = message.user;
+        this.extensionToken = message.token;
         
-        // Notify backend about successful upload
-        await fetch(`${this.apiBaseUrl}/api/storage/upload-complete`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${stored.authToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            key,
-            type: 'security_evidence',
-            metadata: evidenceData.metadata
-          })
-        })
-      }
-    } catch (error) {
-      console.error('S3 storage error:', error)
+        await this.logActivity({
+            action: 'EXTENSION_AUTHENTICATED',
+            details: `User ${message.user.name} authenticated with organization: ${message.organization.name}`,
+            timestamp: new Date().toISOString()
+        });
+
+        this.updateBadge('ON');
+        
+        // Notify all content scripts
+        await this.notifyContentScripts('authenticated', {
+            organization: this.organizationData,
+            user: this.userData,
+            settings: this.settings
+        });
     }
-  }
 
-  async getAIChatbotList() {
-    try {
-      const stored = await chrome.storage.local.get(['authToken'])
-      
-      if (!stored.authToken) {
-        return []
-      }
+    async handleLogout() {
+        await this.logActivity({
+            action: 'EXTENSION_LOGOUT',
+            details: 'User logged out from extension',
+            timestamp: new Date().toISOString()
+        });
 
-      const response = await fetch(`${this.apiBaseUrl}/api/config/ai-chatbots`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${stored.authToken}`
+        this.organizationData = null;
+        this.userData = null;
+        this.extensionToken = null;
+        this.updateBadge('OFF');
+        
+        // Notify all content scripts
+        await this.notifyContentScripts('logout', {});
+    }
+
+    async scanPageContent(content) {
+        if (!this.organizationData) {
+            return [];
         }
-      })
 
-      if (response.ok) {
-        const data = await response.json()
-        return data.chatbots || []
-      }
-    } catch (error) {
-      console.error('AI chatbot list error:', error)
+        const sensitivePatterns = this.getSensitivePatterns();
+        const results = [];
+        
+        sensitivePatterns.forEach(pattern => {
+            const matches = content.match(pattern.regex);
+            if (matches) {
+                results.push({
+                    type: pattern.name,
+                    description: `Found ${matches.length} instance(s) of ${pattern.name}`,
+                    category: pattern.category,
+                    count: matches.length,
+                    severity: pattern.severity
+                });
+            }
+        });
+
+        // Log scan activity
+        await this.logActivity({
+            action: 'PAGE_SCANNED',
+            details: `Scanned page, found ${results.length} sensitive data types`,
+            timestamp: new Date().toISOString(),
+            results: results
+        });
+
+        return results;
     }
 
-    // Fallback to default list
-    return [
-      { name: 'ChatGPT', domain: 'chat.openai.com', riskLevel: 'high' },
-      { name: 'Claude', domain: 'claude.ai', riskLevel: 'high' },
-      { name: 'Bard/Gemini', domain: 'bard.google.com', riskLevel: 'medium' },
-      { name: 'Bing Chat', domain: 'bing.com', riskLevel: 'medium' },
-      { name: 'Character.AI', domain: 'character.ai', riskLevel: 'low' },
-      { name: 'Perplexity', domain: 'perplexity.ai', riskLevel: 'medium' }
-    ]
-  }
+    getSensitivePatterns() {
+        const patterns = [
+            {
+                name: 'Credit Card Number',
+                regex: /\b(?:\d{4}[\s-]?){3}\d{4}\b/g,
+                category: 'financial',
+                severity: 'high'
+            },
+            {
+                name: 'Social Security Number',
+                regex: /\b\d{3}-\d{2}-\d{4}\b/g,
+                category: 'pii',
+                severity: 'high'
+            },
+            {
+                name: 'Email Address',
+                regex: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,
+                category: 'pii',
+                severity: 'medium'
+            },
+            {
+                name: 'Phone Number',
+                regex: /\b(?:\+?1[-.\s]?)?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}\b/g,
+                category: 'pii',
+                severity: 'medium'
+            },
+            {
+                name: 'API Key',
+                regex: /\b[A-Za-z0-9]{32,}\b/g,
+                category: 'credential',
+                severity: 'critical'
+            },
+            {
+                name: 'JWT Token',
+                regex: /eyJ[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*/g,
+                category: 'credential',
+                severity: 'critical'
+            },
+            {
+                name: 'AWS Access Key',
+                regex: /AKIA[0-9A-Z]{16}/g,
+                category: 'credential',
+                severity: 'critical'
+            },
+            {
+                name: 'Password Pattern',
+                regex: /(?:password|pwd|pass)\s*[:=]\s*[^\s]{6,}/gi,
+                category: 'credential',
+                severity: 'high'
+            }
+        ];
 
-  async uploadToS3(data) {
-    try {
-      const stored = await chrome.storage.local.get(['authToken'])
-      
-      if (!stored.authToken) {
-        throw new Error('Not authenticated')
-      }
-
-      // Get presigned URL from backend
-      const response = await fetch(`${this.apiBaseUrl}/api/storage/upload-url`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${stored.authToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          type: data.type || 'general',
-          contentType: data.contentType || 'application/octet-stream',
-          filename: data.filename
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to get upload URL')
-      }
-
-      const { uploadUrl, key } = await response.json()
-
-      // Upload file to S3
-      const uploadResponse = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': data.contentType || 'application/octet-stream'
-        },
-        body: data.content
-      })
-
-      if (uploadResponse.ok) {
-        return {
-          success: true,
-          key: key,
-          url: uploadUrl.split('?')[0] // Remove query parameters
+        // Filter by sensitivity level
+        if (this.settings.sensitivityLevel === 'low') {
+            return patterns.filter(p => p.severity === 'critical');
+        } else if (this.settings.sensitivityLevel === 'medium') {
+            return patterns.filter(p => ['critical', 'high'].includes(p.severity));
+        } else {
+            return patterns; // high sensitivity - all patterns
         }
-      } else {
-        throw new Error('Upload failed')
-      }
-    } catch (error) {
-      console.error('S3 upload error:', error)
-      return {
-        success: false,
-        error: error.message
-      }
     }
-  }
 
-  // Hash content for privacy-preserving storage
-  async hashContent(content) {
-    const encoder = new TextEncoder()
-    const data = encoder.encode(content)
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data)
-    const hashArray = Array.from(new Uint8Array(hashBuffer))
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
-  }
+    async handleSensitiveDataDetection(data, tab) {
+        if (!this.settings.enableNotifications) return;
 
-  // Log detection events locally
-  async logDetectionEvent(eventData) {
-    try {
-      const stored = await chrome.storage.local.get(['detectionLogs'])
-      const logs = stored.detectionLogs || []
-      
-      logs.push({
-        ...eventData,
-        id: Date.now(),
-        timestamp: new Date().toISOString()
-      })
-      
-      // Keep only last 100 logs
-      if (logs.length > 100) {
-        logs.splice(0, logs.length - 100)
-      }
-      
-      await chrome.storage.local.set({ detectionLogs: logs })
-    } catch (error) {
-      console.error('Failed to log detection event:', error)
+        // Show notification
+        chrome.notifications.create({
+            type: 'basic',
+            iconUrl: 'icon48.png',
+            title: 'Sensitive Data Detected',
+            message: `${data.type} detected on ${new URL(tab.url).hostname}`
+        });
+
+        // Log the detection
+        await this.logActivity({
+            action: 'SENSITIVE_DATA_DETECTED',
+            details: `${data.type} detected: ${data.description}`,
+            timestamp: new Date().toISOString(),
+            url: tab.url
+        });
+
+        // Send to server
+        await this.sendToServer('/api/activity', {
+            userId: this.userData?.id,
+            orgId: this.organizationData?.id,
+            action: 'SENSITIVE_DATA_DETECTED',
+            details: `${data.type} detected on ${new URL(tab.url).hostname}`,
+            url: tab.url,
+            timestamp: new Date().toISOString()
+        });
     }
-  }
 
-  // Update local analyzer patterns
-  async updateAnalyzerPatterns() {
-    try {
-      const stored = await chrome.storage.local.get(['customPatterns'])
-      if (stored.customPatterns) {
-        this.localAnalyzer.updatePatterns(stored.customPatterns)
-      }
-    } catch (error) {
-      console.error('Failed to update analyzer patterns:', error)
+    async handleChatbotBlocked(data, tab) {
+        if (!this.settings.enableNotifications) return;
+
+        // Show notification
+        chrome.notifications.create({
+            type: 'basic',
+            iconUrl: 'icon48.png',
+            title: 'AI Chatbot Blocked',
+            message: `Sensitive data blocked from ${data.chatbot} on ${new URL(tab.url).hostname}`
+        });
+
+        // Log the block
+        await this.logActivity({
+            action: 'CHATBOT_BLOCKED',
+            details: `Blocked sensitive data from being sent to ${data.chatbot}`,
+            timestamp: new Date().toISOString(),
+            url: tab.url
+        });
     }
-  }
+
+    async logActivity(activity) {
+        try {
+            const result = await chrome.storage.local.get(['activityLog']);
+            const activityLog = result.activityLog || [];
+            
+            activityLog.push({
+                ...activity,
+                id: Date.now(),
+                organizationId: this.organizationData?.id,
+                userId: this.userData?.id
+            });
+            
+            // Keep only last 100 activities
+            if (activityLog.length > 100) {
+                activityLog.splice(0, activityLog.length - 100);
+            }
+            
+            await chrome.storage.local.set({ activityLog });
+            
+            // Send to server if authenticated
+            if (this.extensionToken && this.organizationData) {
+                await this.sendToServer('/api/activity', activity);
+            }
+        } catch (error) {
+            console.error('Failed to log activity:', error);
+        }
+    }
+
+    async sendToServer(endpoint, data) {
+        try {
+            await fetch(`${this.apiUrl}${endpoint}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.extensionToken}`
+                },
+                body: JSON.stringify({
+                    ...data,
+                    organizationId: this.organizationData?.id,
+                    userId: this.userData?.id,
+                    extensionVersion: chrome.runtime.getManifest().version
+                })
+            });
+        } catch (error) {
+            console.error('Failed to send to server:', error);
+        }
+    }
+
+    async notifyContentScripts(action, data) {
+        try {
+            const tabs = await chrome.tabs.query({});
+            
+            for (const tab of tabs) {
+                try {
+                    await chrome.tabs.sendMessage(tab.id, {
+                        action: action,
+                        data: data
+                    });
+                } catch (error) {
+                    // Tab might not have content script loaded, ignore
+                }
+            }
+        } catch (error) {
+            console.error('Failed to notify content scripts:', error);
+        }
+    }
+
+    updateBadge(text) {
+        chrome.action.setBadgeText({ text });
+        chrome.action.setBadgeBackgroundColor({ 
+            color: text === 'ON' ? '#10b981' : '#6b7280' 
+        });
+    }
+
+    setupPeriodicSync() {
+        // Sync activity every 5 minutes
+        setInterval(async () => {
+            if (this.extensionToken && this.organizationData) {
+                await this.syncWithServer();
+            }
+        }, 5 * 60 * 1000);
+    }
+
+    async syncWithServer() {
+        try {
+            const result = await chrome.storage.local.get(['activityLog']);
+            const activityLog = result.activityLog || [];
+            
+            // Send unsent activities
+            const unsentActivities = activityLog.filter(a => !a.synced);
+            
+            if (unsentActivities.length > 0) {
+                await fetch(`${this.apiUrl}/api/activity/bulk`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${this.extensionToken}`
+                    },
+                    body: JSON.stringify({
+                        activities: unsentActivities,
+                        organizationId: this.organizationData.id,
+                        userId: this.userData.id
+                    })
+                });
+                
+                // Mark as synced
+                unsentActivities.forEach(a => a.synced = true);
+                await chrome.storage.local.set({ activityLog });
+            }
+        } catch (error) {
+            console.error('Sync failed:', error);
+        }
+    }
 }
 
 // Initialize background service
-const backgroundService = new ExtensionBackgroundService()
-
-// Context menu for quick actions
-chrome.contextMenus.create({
-  id: 'analyze-selection',
-  title: 'Analyze Selected Text for Sensitive Data',
-  contexts: ['selection']
-})
-
-chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (info.menuItemId === 'analyze-selection') {
-    // Inject content script to analyze selected text
-    chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      function: () => {
-        const selectedText = window.getSelection().toString()
-        if (selectedText) {
-          chrome.runtime.sendMessage({
-            action: 'analyzeSensitiveData',
-            data: {
-              content: selectedText,
-              url: window.location.href,
-              source: 'context_menu_selection'
-            }
-          })
-        }
-      }
-    })
-  }
-})
-
-// Periodic cleanup of stored data
-setInterval(async () => {
-  try {
-    const stored = await chrome.storage.local.get()
-    const now = Date.now()
-    const oneWeek = 7 * 24 * 60 * 60 * 1000
-
-    // Clean up old cached data
-    Object.keys(stored).forEach(key => {
-      if (key.startsWith('cache_') && stored[key].timestamp) {
-        if (now - stored[key].timestamp > oneWeek) {
-          chrome.storage.local.remove(key)
-        }
-      }
-    })
-  } catch (error) {
-    console.error('Cleanup error:', error)
-  }
-}, 24 * 60 * 60 * 1000) // Run daily
+new ExtensionBackground();
