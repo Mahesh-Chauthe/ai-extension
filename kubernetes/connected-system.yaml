@@ -1,0 +1,453 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: master-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: master-api
+  namespace: master-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: master-api
+  template:
+    metadata:
+      labels:
+        app: master-api
+    spec:
+      containers:
+      - name: master-api
+        image: node:18-alpine
+        command: ["/bin/sh"]
+        args: ["-c", "echo 'const http = require(\"http\"); const url = require(\"url\"); let organizations = {}; let users = {}; let tokens = {}; const server = http.createServer((req, res) => { const parsedUrl = url.parse(req.url, true); const method = req.method; res.setHeader(\"Access-Control-Allow-Origin\", \"*\"); res.setHeader(\"Access-Control-Allow-Methods\", \"GET, POST, PUT, DELETE\"); res.setHeader(\"Access-Control-Allow-Headers\", \"Content-Type\"); if (method === \"OPTIONS\") { res.writeHead(200); res.end(); return; } let body = \"\"; req.on(\"data\", chunk => body += chunk); req.on(\"end\", () => { if (parsedUrl.pathname === \"/api/organizations\" && method === \"POST\") { const data = JSON.parse(body); const orgId = \"org_\" + Date.now(); const orgToken = \"ext_\" + Math.random().toString(36).substr(2, 16); organizations[orgId] = { ...data, id: orgId, token: orgToken, portalUrl: `http://localhost:809${Object.keys(organizations).length + 2}`, users: 0 }; res.writeHead(200, {\"Content-Type\": \"application/json\"}); res.end(JSON.stringify(organizations[orgId])); } else if (parsedUrl.pathname === \"/api/organizations\" && method === \"GET\") { res.writeHead(200, {\"Content-Type\": \"application/json\"}); res.end(JSON.stringify(Object.values(organizations))); } else if (parsedUrl.pathname.startsWith(\"/api/org/\") && method === \"GET\") { const token = parsedUrl.pathname.split(\"/\")[3]; const org = Object.values(organizations).find(o => o.token === token); if (org) { res.writeHead(200, {\"Content-Type\": \"application/json\"}); res.end(JSON.stringify(org)); } else { res.writeHead(404); res.end(JSON.stringify({error: \"Organization not found\"})); } } else if (parsedUrl.pathname === \"/api/users\" && method === \"POST\") { const data = JSON.parse(body); const userId = \"user_\" + Date.now(); const userToken = \"usr_\" + Math.random().toString(36).substr(2, 12); users[userId] = { ...data, id: userId, token: userToken }; tokens[userToken] = { userId, orgToken: data.orgToken, active: true }; const org = Object.values(organizations).find(o => o.token === data.orgToken); if (org) org.users++; res.writeHead(200, {\"Content-Type\": \"application/json\"}); res.end(JSON.stringify(users[userId])); } else if (parsedUrl.pathname === \"/api/validate-token\" && method === \"POST\") { const data = JSON.parse(body); const tokenData = tokens[data.token]; if (tokenData && tokenData.active) { res.writeHead(200, {\"Content-Type\": \"application/json\"}); res.end(JSON.stringify({valid: true, user: users[tokenData.userId]})); } else { res.writeHead(401); res.end(JSON.stringify({error: \"Invalid token\"})); } } else { res.writeHead(404); res.end(JSON.stringify({error: \"Not found\"})); } }); }); server.listen(3000, () => console.log(\"Master API ready\"));' > server.js && node server.js"]
+        ports:
+        - containerPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: master-api-service
+  namespace: master-system
+spec:
+  selector:
+    app: master-api
+  ports:
+  - name: api
+    port: 8080
+    targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: master-portal
+  namespace: master-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: master-portal
+  template:
+    metadata:
+      labels:
+        app: master-portal
+    spec:
+      containers:
+      - name: master-portal
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: portal-content
+          mountPath: /usr/share/nginx/html
+      volumes:
+      - name: portal-content
+        configMap:
+          name: master-portal-html
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: master-portal-service
+  namespace: master-system
+spec:
+  selector:
+    app: master-portal
+  ports:
+  - name: web
+    port: 8090
+    targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: org-portal
+  namespace: master-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: org-portal
+  template:
+    metadata:
+      labels:
+        app: org-portal
+    spec:
+      containers:
+      - name: org-portal
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: org-portal-content
+          mountPath: /usr/share/nginx/html
+      volumes:
+      - name: org-portal-content
+        configMap:
+          name: org-portal-html
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: org-portal-service
+  namespace: master-system
+spec:
+  selector:
+    app: org-portal
+  ports:
+  - name: web
+    port: 8091
+    targetPort: 80
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: master-portal-html
+  namespace: master-system
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Master Portal</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #0f172a; color: white; }
+            .container { max-width: 1200px; margin: 0 auto; }
+            .header { background: linear-gradient(135deg, #7c3aed, #a855f7); padding: 2rem; border-radius: 12px; margin-bottom: 2rem; }
+            .card { background: #1e293b; padding: 2rem; border-radius: 12px; margin-bottom: 1rem; }
+            .btn { background: #7c3aed; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 8px; cursor: pointer; }
+            .form-group { margin-bottom: 1rem; }
+            .form-group input { width: 100%; padding: 0.75rem; border: 1px solid #475569; border-radius: 8px; background: #334155; color: white; }
+            .table { width: 100%; border-collapse: collapse; }
+            .table th, .table td { padding: 1rem; text-align: left; border-bottom: 1px solid #334155; }
+            .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); }
+            .modal-content { background: #1e293b; padding: 2rem; border-radius: 12px; max-width: 500px; margin: 10% auto; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>👑 Master Portal</h1>
+                <p>Enterprise Security System - Root Administration</p>
+            </div>
+            
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                    <h2>Organizations</h2>
+                    <button class="btn" onclick="showCreateModal()">+ Create Organization</button>
+                </div>
+                <table class="table" id="orgTable">
+                    <thead>
+                        <tr>
+                            <th>Organization</th>
+                            <th>Admin Email</th>
+                            <th>Users</th>
+                            <th>Portal URL</th>
+                            <th>Access Token</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="createModal" class="modal">
+            <div class="modal-content">
+                <h3>Create Organization</h3>
+                <form id="createForm">
+                    <div class="form-group">
+                        <input type="text" id="orgName" placeholder="Organization Name" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="orgDomain" placeholder="company.com" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="email" id="adminEmail" placeholder="admin@company.com" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="number" id="userLimit" placeholder="User Limit" value="50" required>
+                    </div>
+                    <button type="submit" class="btn">Create Organization</button>
+                    <button type="button" class="btn" onclick="closeModal()">Cancel</button>
+                </form>
+            </div>
+        </div>
+
+        <script>
+            const API_URL = 'http://localhost:8080';
+            
+            function showCreateModal() {
+                document.getElementById('createModal').style.display = 'block';
+            }
+            
+            function closeModal() {
+                document.getElementById('createModal').style.display = 'none';
+            }
+            
+            document.getElementById('createForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const orgData = {
+                    name: document.getElementById('orgName').value,
+                    domain: document.getElementById('orgDomain').value,
+                    adminEmail: document.getElementById('adminEmail').value,
+                    userLimit: parseInt(document.getElementById('userLimit').value)
+                };
+                
+                try {
+                    const response = await fetch(`${API_URL}/api/organizations`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(orgData)
+                    });
+                    
+                    const org = await response.json();
+                    
+                    alert(`Organization Created Successfully!
+
+Organization: ${org.name}
+Portal URL: ${org.portalUrl}
+Access Token: ${org.token}
+
+Provide the Portal URL and Access Token to the Organization Admin.`);
+                    
+                    loadOrganizations();
+                    closeModal();
+                    document.getElementById('createForm').reset();
+                } catch (error) {
+                    alert('Error creating organization');
+                }
+            });
+            
+            async function loadOrganizations() {
+                try {
+                    const response = await fetch(`${API_URL}/api/organizations`);
+                    const orgs = await response.json();
+                    
+                    const tbody = document.querySelector('#orgTable tbody');
+                    tbody.innerHTML = '';
+                    
+                    orgs.forEach(org => {
+                        const row = tbody.insertRow();
+                        row.innerHTML = `
+                            <td>${org.name}</td>
+                            <td>${org.adminEmail}</td>
+                            <td>${org.users}/${org.userLimit}</td>
+                            <td><a href="${org.portalUrl}" target="_blank">${org.portalUrl}</a></td>
+                            <td><code>${org.token}</code></td>
+                        `;
+                    });
+                } catch (error) {
+                    console.error('Error loading organizations');
+                }
+            }
+            
+            loadOrganizations();
+        </script>
+    </body>
+    </html>
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: org-portal-html
+  namespace: master-system
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Organization Portal</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #0f172a; color: white; }
+            .container { max-width: 1000px; margin: 0 auto; }
+            .header { background: linear-gradient(135deg, #059669, #10b981); padding: 2rem; border-radius: 12px; margin-bottom: 2rem; }
+            .card { background: #1e293b; padding: 2rem; border-radius: 12px; margin-bottom: 1rem; }
+            .btn { background: #059669; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 8px; cursor: pointer; }
+            .form-group { margin-bottom: 1rem; }
+            .form-group input { width: 100%; padding: 0.75rem; border: 1px solid #475569; border-radius: 8px; background: #334155; color: white; }
+            .table { width: 100%; border-collapse: collapse; }
+            .table th, .table td { padding: 1rem; text-align: left; border-bottom: 1px solid #334155; }
+            .login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+            .login-card { background: #1e293b; padding: 3rem; border-radius: 12px; max-width: 400px; }
+            .dashboard { display: none; }
+        </style>
+    </head>
+    <body>
+        <div id="loginScreen" class="login-screen">
+            <div class="login-card">
+                <h1>🏢 Organization Portal</h1>
+                <p>Enter your organization access token</p>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <input type="password" id="accessToken" placeholder="Access Token" required>
+                    </div>
+                    <button type="submit" class="btn">Login</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="dashboard" class="dashboard">
+            <div class="container">
+                <div class="header">
+                    <h1 id="orgName">Organization Dashboard</h1>
+                    <p id="orgInfo">Manage users and extension tokens</p>
+                </div>
+                
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                        <h2>Users</h2>
+                        <button class="btn" onclick="showCreateUserModal()">+ Create User</button>
+                    </div>
+                    <table class="table" id="userTable">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Email</th>
+                                <th>Extension Token</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="createUserModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8);">
+            <div style="background: #1e293b; padding: 2rem; border-radius: 12px; max-width: 500px; margin: 10% auto;">
+                <h3>Create User</h3>
+                <form id="createUserForm">
+                    <div class="form-group">
+                        <input type="text" id="userName" placeholder="User Name" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="email" id="userEmail" placeholder="user@company.com" required>
+                    </div>
+                    <button type="submit" class="btn">Create User</button>
+                    <button type="button" class="btn" onclick="closeUserModal()">Cancel</button>
+                </form>
+            </div>
+        </div>
+
+        <script>
+            const API_URL = 'http://localhost:8080';
+            let currentOrg = null;
+            let users = [];
+            
+            document.getElementById('loginForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const token = document.getElementById('accessToken').value;
+                
+                try {
+                    const response = await fetch(`${API_URL}/api/org/${token}`);
+                    if (response.ok) {
+                        currentOrg = await response.json();
+                        showDashboard();
+                    } else {
+                        alert('Invalid access token');
+                    }
+                } catch (error) {
+                    alert('Error connecting to server');
+                }
+            });
+            
+            function showDashboard() {
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+                document.getElementById('orgName').textContent = currentOrg.name;
+                document.getElementById('orgInfo').textContent = `Admin: ${currentOrg.adminEmail}`;
+                loadUsers();
+            }
+            
+            function showCreateUserModal() {
+                document.getElementById('createUserModal').style.display = 'block';
+            }
+            
+            function closeUserModal() {
+                document.getElementById('createUserModal').style.display = 'none';
+            }
+            
+            document.getElementById('createUserForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const userData = {
+                    name: document.getElementById('userName').value,
+                    email: document.getElementById('userEmail').value,
+                    orgToken: currentOrg.token
+                };
+                
+                try {
+                    const response = await fetch(`${API_URL}/api/users`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(userData)
+                    });
+                    
+                    const user = await response.json();
+                    users.push(user);
+                    
+                    alert(`User Created Successfully!
+
+Name: ${user.name}
+Email: ${user.email}
+Extension Token: ${user.token}
+
+Provide the Extension Token to the user for browser extension setup.`);
+                    
+                    loadUsers();
+                    closeUserModal();
+                    document.getElementById('createUserForm').reset();
+                } catch (error) {
+                    alert('Error creating user');
+                }
+            });
+            
+            function loadUsers() {
+                const tbody = document.querySelector('#userTable tbody');
+                tbody.innerHTML = '';
+                
+                users.forEach(user => {
+                    const row = tbody.insertRow();
+                    row.innerHTML = `
+                        <td>${user.name}</td>
+                        <td>${user.email}</td>
+                        <td><code>${user.token}</code></td>
+                        <td><button class="btn" onclick="regenerateToken('${user.id}')">Regenerate Token</button></td>
+                    `;
+                });
+            }
+            
+            function regenerateToken(userId) {
+                const user = users.find(u => u.id === userId);
+                if (user) {
+                    user.token = 'usr_' + Math.random().toString(36).substr(2, 12);
+                    alert(`New Extension Token for ${user.name}: ${user.token}`);
+                    loadUsers();
+                }
+            }
+        </script>
+    </body>
+    </html>
