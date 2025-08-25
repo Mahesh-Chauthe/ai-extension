@@ -17,7 +17,7 @@ spec:
       - name: admin-dashboard
         image: node:18-alpine
         command: ["sh", "-c"]
-        args: ["-c", "npm init -y && npm install express && echo 'const express = require(\"express\"); const app = express(); app.get(\"/\", (req,res) => res.send(\"<h1>Enterprise Extension Frontend</h1><p>Dashboard running on port 3000</p>\")); app.listen(3000, () => console.log(\"Frontend on port 3000\"));' > server.js && node server.js"]
+        args: ["-c", "npm init -y && npm install express && echo 'const express = require(\"express\"); const app = express(); app.get(\"/\", (req,res) => res.send(\"<h1>Frontend Running</h1>\")); app.listen(3000, \"0.0.0.0\", () => console.log(\"Frontend ready\"));' > server.js && node server.js"]
         ports:
         - containerPort: 3000
         env:
@@ -62,6 +62,7 @@ spec:
   selector:
     app: admin-dashboard
   ports:
-  - port: 8081
+  - name: http
+    port: 8081
     targetPort: 3000
   type: ClusterIP
