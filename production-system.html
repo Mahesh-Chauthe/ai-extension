@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Security System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f8fafc; }
+        
+        /* Portal Selector */
+        .portal-selector { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .portal-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 2rem; max-width: 1000px; padding: 2rem; }
+        .portal-card { background: white; padding: 3rem; border-radius: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.12); text-align: center; cursor: pointer; transition: all 0.3s ease; border: 2px solid transparent; }
+        .portal-card:hover { transform: translateY(-8px); box-shadow: 0 16px 48px rgba(0,0,0,0.2); }
+        .portal-card.master:hover { border-color: #7c3aed; }
+        .portal-card.org:hover { border-color: #059669; }
+        .portal-card.user:hover { border-color: #dc2626; }
+        .portal-icon { font-size: 5rem; margin-bottom: 1.5rem; }
+        .portal-title { font-size: 1.8rem; font-weight: bold; margin-bottom: 1rem; }
+        .portal-desc { color: #64748b; margin-bottom: 2rem; line-height: 1.6; }
+        .btn { padding: 1rem 2rem; border: none; border-radius: 12px; cursor: pointer; font-weight: 600; font-size: 1rem; transition: all 0.2s; }
+        .btn-master { background: linear-gradient(135deg, #7c3aed, #a855f7); color: white; }
+        .btn-org { background: linear-gradient(135deg, #059669, #10b981); color: white; }
+        .btn-user { background: linear-gradient(135deg, #dc2626, #ef4444); color: white; }
+        .btn:hover { transform: translateY(-2px); }
+        
+        /* Login Container */
+        .login-container { min-height: 100vh; display: none; align-items: center; justify-content: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .login-card { background: white; padding: 3rem; border-radius: 20px; box-shadow: 0 16px 48px rgba(0,0,0,0.3); max-width: 450px; width: 90%; }
+        .login-header { text-align: center; margin-bottom: 2rem; }
+        .login-icon { font-size: 4rem; margin-bottom: 1rem; }
+        .form-group { margin-bottom: 1.5rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151; }
+        .form-group input, .form-group select { width: 100%; padding: 1rem; border: 2px solid #e5e7eb; border-radius: 12px; font-size: 1rem; transition: border-color 0.2s; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: #3b82f6; }
+        .login-btn { width: 100%; padding: 1rem; border: none; border-radius: 12px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .back-btn { background: none; border: none; color: #3b82f6; cursor: pointer; margin-top: 1rem; }
+        
+        /* Dashboard */
+        .dashboard { display: none; min-height: 100vh; }
+        .header { color: white; padding: 1.5rem 2rem; }
+        .header-master { background: linear-gradient(135deg, #7c3aed, #a855f7); }
+        .header-org { background: linear-gradient(135deg, #059669, #10b981); }
+        .header-user { background: linear-gradient(135deg, #dc2626, #ef4444); }
+        .header-content { display: flex; justify-content: space-between; align-items: center; }
+        .nav { display: flex; gap: 2rem; margin-top: 1.5rem; }
+        .nav-item { color: rgba(255,255,255,0.8); cursor: pointer; padding: 0.75rem 1.5rem; border-radius: 12px; transition: all 0.2s; font-weight: 500; }
+        .nav-item:hover, .nav-item.active { background: rgba(255,255,255,0.2); color: white; }
+        .container { max-width: 1400px; margin: 2rem auto; padding: 0 2rem; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; margin-bottom: 2rem; }
+        .card { background: white; padding: 2rem; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border: 1px solid #f1f5f9; }
+        .card h3 { margin-bottom: 1rem; color: #1e293b; font-size: 1.2rem; }
+        .stat { text-align: center; }
+        .stat-number { font-size: 3rem; font-weight: bold; margin-bottom: 0.5rem; }
+        .stat-label { color: #64748b; font-size: 0.9rem; }
+        .table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        .table th, .table td { padding: 1rem; text-align: left; border-bottom: 1px solid #f1f5f9; }
+        .table th { background: #f8fafc; font-weight: 600; color: #374151; }
+        .badge { padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: 500; }
+        .badge-success { background: #dcfce7; color: #166534; }
+        .badge-warning { background: #fef3c7; color: #92400e; }
+        .badge-danger { background: #fee2e2; color: #991b1b; }
+        .badge-info { background: #dbeafe; color: #1e40af; }
+        
+        /* Modal */
+        .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: white; padding: 2rem; border-radius: 20px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+        .close-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #64748b; }
+        
+        /* Animations */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.5s ease-out; }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .portal-grid { grid-template-columns: 1fr; }
+            .header-content { flex-direction: column; gap: 1rem; }
+            .nav { flex-wrap: wrap; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Portal Selector -->
+    <div id="portalSelector" class="portal-selector fade-in">
+        <div>
+            <h1 style="text-align: center; margin-bottom: 3rem; color: #1e293b; font-size: 3rem;">🛡️ Enterprise Security System</h1>
+            <p style="text-align: center; margin-bottom: 3rem; color: #64748b; font-size: 1.2rem;">Choose your access portal</p>
+            
+            <div class="portal-grid">
+                <div class="portal-card master" onclick="showLogin('master')">
+                    <div class="portal-icon">👑</div>
+                    <div class="portal-title">Master Admin</div>
+                    <div class="portal-desc">System-wide management, create organizations, global analytics, and system configuration</div>
+                    <button class="btn btn-master">Access Master Portal</button>
+                    <div style="margin-top: 1rem; font-size: 0.8rem; color: #64748b;">
+                        • Create Organizations<br>
+                        • Global Settings<br>
+                        • System Analytics
+                    </div>
+                </div>
+                
+                <div class="portal-card org" onclick="showLogin('org')">
+                    <div class="portal-icon">🏢</div>
+                    <div class="portal-title">Organization Admin</div>
+                    <div class="portal-desc">Manage users, deploy extensions, configure policies, and monitor organization security</div>
+                    <button class="btn btn-org">Access Org Portal</button>
+                    <div style="margin-top: 1rem; font-size: 0.8rem; color: #64748b;">
+                        • Manage Users<br>
+                        • Deploy Extensions<br>
+                        • Security Policies
+                    </div>
+                </div>
+                
+                <div class="portal-card user" onclick="showLogin('user')">
+                    <div class="portal-icon">👤</div>
+                    <div class="portal-title">End User</div>
+                    <div class="portal-desc">Extension usage, personal settings, activity monitoring, and security alerts</div>
+                    <button class="btn btn-user">Access User Portal</button>
+                    <div style="margin-top: 1rem; font-size: 0.8rem; color: #64748b;">
+                        • Extension Control<br>
+                        • Activity History<br>
+                        • Security Alerts
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Container -->
+    <div id="loginContainer" class="login-container">
+        <div class="login-card fade-in">
+            <div class="login-header">
+                <div class="login-icon" id="loginIcon">🔐</div>
+                <h2 id="loginTitle">Login</h2>
+                <p id="loginSubtitle">Enter your credentials</p>
+            </div>
+            
+            <form id="loginForm">
+                <div class="form-group" id="masterKeyGroup" style="display: none;">
+                    <label>Master Key</label>
+                    <input type="password" id="masterKey" placeholder="Enter master system key">
+                </div>
+                
+                <div class="form-group" id="orgDomainGroup" style="display: none;">
+                    <label>Organization Domain</label>
+                    <select id="orgDomain">
+                        <option value="">Select Organization</option>
+                        <option value="techcorp.com">TechCorp Inc (techcorp.com)</option>
+                        <option value="startupxyz.io">StartupXYZ (startupxyz.io)</option>
+                        <option value="megacorp.com">MegaCorp Ltd (megacorp.com)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" id="email" placeholder="Enter your email" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="password" placeholder="Enter your password" required>
+                </div>
+                
+                <button type="submit" class="login-btn" id="loginBtn">Sign In</button>
+            </form>
+            
+            <div style="text-align: center;">
+                <button class="back-btn" onclick="showPortalSelector()">← Back to Portal Selection</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="dashboard" class="dashboard">
+        <div id="dashboardHeader" class="header">
+            <div class="header-content">
+                <div>
+                    <h1 id="dashboardTitle">Dashboard</h1>
+                    <p id="dashboardSubtitle">Welcome</p>
+                </div>
+                <div>
+                    <button class="btn" onclick="logout()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3);">Logout</button>
+                </div>
+            </div>
+            <div class="nav" id="dashboardNav">
+                <!-- Navigation populated by JavaScript -->
+            </div>
+        </div>
+
+        <div class="container" id="dashboardContent">
+            <!-- Content populated by JavaScript -->
+        </div>
+    </div>
+
+    <!-- Create Modal -->
+    <div id="createModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Create</h3>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="createForm">
+                <div id="modalFields">
+                    <!-- Fields populated by JavaScript -->
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="submit" class="btn" style="background: #3b82f6; color: white;">Create</button>
+                    <button type="button" class="btn" onclick="closeModal()" style="background: #64748b; color: white;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080';
+        let currentUser = null;
+        let currentRole = null;
+        let currentView = 'overview';
+
+        // Sample data for production system
+        const systemData = {
+            organizations: [
+                { 
+                    id: 1, 
+                    name: 'TechCorp Inc', 
+                    domain: 'techcorp.com', 
+                    status: 'active', 
+                    totalSeats: 100, 
+                    usedSeats: 45, 
+                    plan: 'enterprise',
+                    created: '2024-01-15',
+                    admin: { email: 'admin@techcorp.com', name: 'John Smith' }
+                },
+                { 
+                    id: 2, 
+                    name: 'StartupXYZ', 
+                    domain: 'startupxyz.io', 
+                    status: 'active', 
+                    totalSeats: 25, 
+                    usedSeats: 12, 
+                    plan: 'professional',
+                    created: '2024-01-20',
+                    admin: { email: 'admin@startupxyz.io', name: 'Alice Johnson' }
+                },
+                { 
+                    id: 3, 
+                    name: 'MegaCorp Ltd', 
+                    domain: 'megacorp.com', 
+                    status: 'active', 
+                    totalSeats: 500, 
+                    usedSeats: 287, 
+                    plan: 'enterprise',
+                    created: '2024-01-10',
+                    admin: { email: 'admin@megacorp.com', name: 'Robert Wilson' }
+                }
+            ],
+            users: [
+                { id: 1, email: 'admin@techcorp.com', firstName: 'John', lastName: 'Smith', role: 'org_admin', organizationId: 1, status: 'active', lastLogin: '2024-01-25 09:30' },
+                { id: 2, email: 'manager@techcorp.com', firstName: 'Jane', lastName: 'Doe', role: 'manager', organizationId: 1, status: 'active', lastLogin: '2024-01-25 08:15' },
+                { id: 3, email: 'user1@techcorp.com', firstName: 'Bob', lastName: 'Johnson', role: 'user', organizationId: 1, status: 'active', lastLogin: '2024-01-25 10:45' },
+                { id: 4, email: 'user2@techcorp.com', firstName: 'Sarah', lastName: 'Wilson', role: 'user', organizationId: 1, status: 'active', lastLogin: '2024-01-24 16:20' },
+                { id: 5, email: 'admin@startupxyz.io', firstName: 'Alice', lastName: 'Johnson', role: 'org_admin', organizationId: 2, status: 'active', lastLogin: '2024-01-25 07:45' }
+            ],
+            extensions: [
+                { id: 1, organizationId: 1, version: '2.1.0', activeUsers: 42, deployedDate: '2024-01-20', status: 'active', policy: 'strict' },
+                { id: 2, organizationId: 2, version: '2.0.5', activeUsers: 10, deployedDate: '2024-01-18', status: 'active', policy: 'moderate' },
+                { id: 3, organizationId: 3, version: '2.1.0', activeUsers: 280, deployedDate: '2024-01-22', status: 'active', policy: 'strict' }
+            ],
+            detections: [
+                { id: 1, organizationId: 1, userId: 3, type: 'credit_card', severity: 'critical', action: 'blocked', url: 'payment.example.com', timestamp: '2024-01-25 10:30' },
+                { id: 2, organizationId: 1, userId: 2, type: 'api_key', severity: 'high', action: 'warned', url: 'github.com', timestamp: '2024-01-25 09:15' },
+                { id: 3, organizationId: 2, userId: 5, type: 'email_list', severity: 'medium', action: 'logged', url: 'crm.startupxyz.io', timestamp: '2024-01-25 08:45' },
+                { id: 4, organizationId: 1, userId: 4, type: 'ssn', severity: 'critical', action: 'blocked', url: 'hr.techcorp.com', timestamp: '2024-01-24 14:20' }
+            ]
+        };
+
+        // Portal Selection
+        function showLogin(role) {
+            currentRole = role;
+            document.getElementById('portalSelector').style.display = 'none';
+            document.getElementById('loginContainer').style.display = 'flex';
+            
+            const config = {
+                master: {
+                    icon: '👑',
+                    title: 'Master Admin Login',
+                    subtitle: 'System Administrator Access',
+                    btnClass: 'btn-master',
+                    showMasterKey: true,
+                    showOrgDomain: false
+                },
+                org: {
+                    icon: '🏢',
+                    title: 'Organization Admin Login',
+                    subtitle: 'Organization Administrator Access',
+                    btnClass: 'btn-org',
+                    showMasterKey: false,
+                    showOrgDomain: true
+                },
+                user: {
+                    icon: '👤',
+                    title: 'End User Login',
+                    subtitle: 'Employee Access Portal',
+                    btnClass: 'btn-user',
+                    showMasterKey: false,
+                    showOrgDomain: true
+                }
+            };
+            
+            const cfg = config[role];
+            document.getElementById('loginIcon').textContent = cfg.icon;
+            document.getElementById('loginTitle').textContent = cfg.title;
+            document.getElementById('loginSubtitle').textContent = cfg.subtitle;
+            document.getElementById('loginBtn').className = `login-btn ${cfg.btnClass}`;
+            
+            document.getElementById('masterKeyGroup').style.display = cfg.showMasterKey ? 'block' : 'none';
+            document.getElementById('orgDomainGroup').style.display = cfg.showOrgDomain ? 'block' : 'none';
+        }
+
+        function showPortalSelector() {
+            document.getElementById('portalSelector').style.display = 'flex';
+            document.getElementById('loginContainer').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'none';
+            
+            // Reset form
+            document.getElementById('loginForm').reset();
+        }
+
+        // Login handling
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const orgDomain = document.getElementById('orgDomain').value;
+            const masterKey = document.getElementById('masterKey').value;
+
+            // Simulate authentication
+            if (currentRole === 'master') {
+                if (email === 'master@system.com' && masterKey === 'master123') {
+                    currentUser = {
+                        id: 0,
+                        email: email,
+                        firstName: 'Master',
+                        lastName: 'Administrator',
+                        role: 'master_admin'
+                    };
+                    showDashboard();
+                } else {
+                    alert('Invalid master credentials');
+                }
+            } else if (currentRole === 'org') {
+                const org = systemData.organizations.find(o => o.domain === orgDomain);
+                if (org && email === org.admin.email && password === 'admin123') {
+                    currentUser = {
+                        id: 1,
+                        email: email,
+                        firstName: org.admin.name.split(' ')[0],
+                        lastName: org.admin.name.split(' ')[1],
+                        role: 'org_admin',
+                        organization: org
+                    };
+                    showDashboard();
+                } else {
+                    alert('Invalid organization admin credentials');
+                }
+            } else if (currentRole === 'user') {
+                const org = systemData.organizations.find(o => o.domain === orgDomain);
+                const user = systemData.users.find(u => u.email === email && u.organizationId === org?.id);
+                if (user && password === 'user123') {
+                    currentUser = {
+                        ...user,
+                        organization: org
+                    };
+                    showDashboard();
+                } else {
+                    alert('Invalid user credentials');
+                }
+            }
+        });
+
+        // Dashboard
+        function showDashboard() {
+            document.getElementById('loginContainer').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+            
+            const header = document.getElementById('dashboardHeader');
+            const title = document.getElementById('dashboardTitle');
+            const subtitle = document.getElementById('dashboardSubtitle');
+            
+            if (currentUser.role === 'master_admin') {
+                header.className = 'header header-master';
+                title.innerHTML = '👑 Master Admin Dashboard';
+                subtitle.textContent = `System Administrator - ${currentUser.firstName} ${currentUser.lastName}`;
+                setupMasterNavigation();
+            } else if (currentUser.role === 'org_admin') {
+                header.className = 'header header-org';
+                title.innerHTML = `🏢 ${currentUser.organization.name}`;
+                subtitle.textContent = `Organization Admin - ${currentUser.firstName} ${currentUser.lastName}`;
+                setupOrgNavigation();
+            } else {
+                header.className = 'header header-user';
+                title.innerHTML = '👤 User Dashboard';
+                subtitle.textContent = `${currentUser.firstName} ${currentUser.lastName} - ${currentUser.organization.name}`;
+                setupUserNavigation();
+            }
+            
+            showView('overview');
+        }
+
+        // Navigation setup
+        function setupMasterNavigation() {
+            document.getElementById('dashboardNav').innerHTML = `
+                <div class="nav-item active" onclick="showView('overview')">System Overview</div>
+                <div class="nav-item" onclick="showView('organizations')">Organizations</div>
+                <div class="nav-item" onclick="showView('users')">All Users</div>
+                <div class="nav-item" onclick="showView('analytics')">Global Analytics</div>
+                <div class="nav-item" onclick="showView('settings')">System Settings</div>
+            `;
+        }
+
+        function setupOrgNavigation() {
+            document.getElementById('dashboardNav').innerHTML = `
+                <div class="nav-item active" onclick="showView('overview')">Overview</div>
+                <div class="nav-item" onclick="showView('users')">Users</div>
+                <div class="nav-item" onclick="showView('extensions')">Extensions</div>
+                <div class="nav-item" onclick="showView('security')">Security</div>
+                <div class="nav-item" onclick="showView('analytics')">Analytics</div>
+                <div class="nav-item" onclick="showView('settings')">Settings</div>
+            `;
+        }
+
+        function setupUserNavigation() {
+            document.getElementById('dashboardNav').innerHTML = `
+                <div class="nav-item active" onclick="showView('overview')">Dashboard</div>
+                <div class="nav-item" onclick="showView('activity')">My Activity</div>
+                <div class="nav-item" onclick="showView('extension')">Extension</div>
+                <div class="nav-item" onclick="showView('security')">Security Alerts</div>
+                <div class="nav-item" onclick="showView('settings')">Settings</div>
+            `;
+        }
+
+        // View management
+        function showView(viewName) {
+            currentView = viewName;
+            
+            // Update navigation
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            const content = document.getElementById('dashboardContent');
+            
+            if (currentUser.role === 'master_admin') {
+                showMasterView(viewName, content);
+            } else if (currentUser.role === 'org_admin') {
+                showOrgView(viewName, content);
+            } else {
+                showUserView(viewName, content);
+            }
+        }
+
+        // Master Admin Views
+        function showMasterView(view, container) {
+            switch(view) {
+                case 'overview':
+                    const totalUsers = systemData.users.length;
+                    const totalExtensions = systemData.extensions.length;
+                    const totalDetections = systemData.detections.length;
+                    
+                    container.innerHTML = `
+                        <div class="fade-in">
+                            <h2 style="margin-bottom: 2rem; color: #1e293b;">System Overview</h2>
+                            <div class="grid">
+                                <div class="card">
+                                    <h3>Organizations</h3>
+                                    <div class="stat">
+                                        <div class="stat-number" style="color: #7c3aed;">${systemData.organizations.length}</div>
+                                        <div class="stat-label">Active Organizations</div>
+                                    </div>
+                                </div>
+                                <div class="card">
+                                    <h3>Total Users</h3>
+                                    <div class="stat">
+                                        <div class="stat-number" style="color: #7c3aed;">${totalUsers}</div>
+                                        <div class="stat-label">Registered Users</div>
+                                    </div>
+                                </div>
+                                <div class="card">
+                                    <h3>Extensions</h3>
+                                    <div class="stat">
+                                        <div class="stat-number" style="color: #7c3aed;">${totalExtensions}</div>
+                                        <div class="stat-label">Deployed Extensions</div>
+                                    </div>
+                                </div>
+                                <div class="card">
+                                    <h3>Security Events</h3>
+                                    <div class="stat">
+                                        <div class="stat-number" style="color: #7c3aed;">${totalDetections}</div>
+                                        <div class="stat-label">Total Detections</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="card">
+                                <h3>Recent Activity</h3>
+                                <div style="margin-top: 1rem;">
+                                    <p>• TechCorp Inc: 2 critical detections blocked</p>
+                                    <p>• StartupXYZ: Extension updated to v2.0.5</p>
+                                    <p>• MegaCorp Ltd: 15 new users added</p>
+                                    <p>• System: Global security policy updated</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'organizations':
+                    container.innerHTML = `
+                        <div class="fade-in">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                                <h2>Organizations Management</h2>
+                                <button class="btn btn-master" onclick="showCreateModal('organization')">Create Organization</button>
+                            </div>
+                            
+                            <div class="card">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Organization</th>
+                                            <th>Domain</th>
+                                            <th>Plan</th>
+                                            <th>Users</th>
+                                            <th>Status</th>
+                                            <th>Created</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${systemData.organizations.map(org => `
+                                            <tr>
+                                                <td>
+                                                    <strong>${org.name}</strong><br>
+                                                    <small style="color: #64748b;">${org.admin.name}</small>
+                                                </td>
+                                                <td>${org.domain}</td>
+                                                <td><span class="badge badge-${org.plan === 'enterprise' ? 'info' : 'warning'}">${org.plan}</span></td>
+                                                <td>${org.usedSeats}/${org.totalSeats}</td>
+                                                <td><span class="badge badge-success">${org.status}</span></td>
+                                                <td>${org.created}</td>
+                                                <td>
+                                                    <button class="btn" style="background: #3b82f6; color: white; margin-right: 0.5rem; padding: 0.5rem 1rem;">Edit</button>
+                                                    <button class="btn" style="background: #ef4444; color: white; padding: 0.5rem 1rem;">Suspend</button>
+                                                </td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                    break;
+            }
+        }
+
+        // Organization Admin Views
+        function showOrgView(view, container) {
+            const orgId = currentUser.organization.id;
+            const orgUsers = systemData.users.filter(u => u.organizationId === orgId);
+            const orgExtension = systemData.extensions.find(e => e.organizationId === orgId);
+            const orgDetections = systemData.detections.filter(d => d.organizationId === orgId);
+
+            switch(view) {
+                case 'overview':
+                    container.innerHTML = `
+                        <div class="fade-in">
+                            <h2 style="margin-bottom: 2rem; color: #1e293b;">Organization Overview</h2>
+                            <div class="grid">
+                                <div class="card">
+                                    <h3>Users</h3>
+                                    <div class="stat">
+                                        <div class="stat-number" style="color: #059669;">${orgUsers.length}</div>
+                                        <div class="stat-label">Active Users</div>
+                                    </div>
+                                    <p style="margin-top: 1rem; color: #64748b;">Seats: ${currentUser.organization.usedSeats}/${currentUser.organization.totalSeats}</p>
+                                </div>
+                                <div class="card">
+                                    <h3>Extension</h3>
+                                    <div class="stat">
+                                        <div class="stat-number" style="color: #059669;">${orgExtension ? orgExtension.activeUsers : 0}</div>
+                                        <div class="stat-label">Active Installations</div>
+                                    </div>
+                                    <p style="margin-top: 1rem; color: #64748b;">Version: ${orgExtension ? orgExtension.version : 'Not deployed'}</p>
+                                </div>
+                                <div class="card">
+                                    <h3>Security</h3>
+                                    <div class="stat">
+                                        <div class="stat-number" style="color: #059669;">${orgDetections.length}</div>
+                                        <div class="stat-label">Total Detections</div>
+                                    </div>
+                                    <p style="margin-top: 1rem; color: #64748b;">Policy: ${orgExtension ? orgExtension.policy : 'Not set'}</p>
+                                </div>
+                                <div class="card">
+                                    <h3>Compliance</h3>
+                                    <div class="stat">
+                                        <div class="stat-number" style="color: #059669;">98%</div>
+                                        <div class="stat-label">Score</div>
+                                    </div>
+                                    <p style="margin-top: 1rem; color: #64748b;">Last audit: Jan 20, 2024</p>
+                                </div>
+                            </div>
+                            
+                            <div class="card">
+                                <h3>Recent Security Events</h3>
+                                <div style="margin-top: 1rem;">
+                                    ${orgDetections.slice(0, 3).map(detection => `
+                                        <p style="margin-bottom: 0.5rem;">
+                                            <span class="badge badge-${detection.severity === 'critical' ? 'danger' : detection.severity === 'high' ? 'warning' : 'info'}">${detection.severity}</span>
+                                            ${detection.type.replace('_', ' ')} detected - ${detection.action}
+                                            <small style="color: #64748b; margin-left: 1rem;">${detection.timestamp}</small>
+                                        </p>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'users':
+                    container.innerHTML = `
+                        <div class="fade-in">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                                <h2>User Management</h2>
+                                <button class="btn btn-org" onclick="showCreateModal('user')">Create User</button>
+                            </div>
+                            
+                            <div class="card">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>User</th>
+                                            <th>Email</th>
+                                            <th>Role</th>
+                                            <th>Status</th>
+                                            <th>Last Login</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${orgUsers.map(user => `
+                                            <tr>
+                                                <td>
+                                                    <strong>${user.firstName} ${user.lastName}</strong>
+                                                </td>
+                                                <td>${user.email}</td>
+                                                <td><span class="badge badge-${user.role === 'org_admin' ? 'warning' : user.role === 'manager' ? 'info' : 'success'}">${user.role.replace('_', ' ')}</span></td>
+                                                <td><span class="badge badge-success">${user.status}</span></td>
+                                                <td>${user.lastLogin}</td>
+                                                <td>
+                                                    <button class="btn" style="background: #3b82f6; color: white; margin-right: 0.5rem; padding: 0.5rem 1rem;">Edit</button>
+                                                    <button class="btn" style="background: #ef4444; color: white; padding: 0.5rem 1rem;">Disable</button>
+                                                </td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'extensions':
+                    container.innerHTML = `
+                        <div class="fade-in">
+                            <h2 style="margin-bottom: 2rem; color: #1e293b;">Extension Management</h2>
+                            <div class="grid">
+                                <div class="card">
+                                    <h3>Current Deployment</h3>
+                                    <p><strong>Version:</strong> ${orgExtension ? orgExtension.version : 'Not deployed'}</p>
+                                    <p><strong>Active Users:</strong> ${orgExtension ? orgExtension.activeUsers : 0}</p>
+                                    <p><strong>Deployed:</strong> ${orgExtension ? orgExtension.deployedDate : 'Never'}</p>
+                                    <p><strong>Status:</strong> <span class="badge badge-success">${orgExtension ? orgExtension.status : 'Not deployed'}</span></p>
+                                    <button class="btn btn-org" style="margin-top: 1rem;">Deploy Update</button>
+                                </div>
+                                <div class="card">
+                                    <h3>Extension Settings</h3>
+                                    <p><strong>Policy:</strong> ${orgExtension ? orgExtension.policy : 'Not set'}</p>
+                                    <p><strong>Auto-update:</strong> Enabled</p>
+                                    <p><strong>Notifications:</strong> Enabled</p>
+                                    <p><strong>Data Collection:</strong> Minimal</p>
+                                    <button class="btn btn-org" style="margin-top: 1rem;">Configure</button>
+                                </div>
+                            </div>
+                            
+                            <div class="card">
+                                <h3>Extension Features</h3>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                                    <div style="padding: 1rem; background: #f8fafc; border-radius: 8px;">
+                                        <h4>Sensitive Data Detection</h4>
+                                        <p style="color: #64748b; font-size: 0.9rem;">Real-time scanning for PII, financial data, and credentials</p>
+                                    </div>
+                                    <div style="padding: 1rem; background: #f8fafc; border-radius: 8px;">
+                                        <h4>AI Chatbot Monitoring</h4>
+                                        <p style="color: #64748b; font-size: 0.9rem;">Detect and control AI chatbot usage</p>
+                                    </div>
+                                    <div style="padding: 1rem; background: #f8fafc; border-radius: 8px;">
+                                        <h4>File Upload Protection</h4>
+                                        <p style="color: #64748b; font-size: 0.9rem;">Monitor and control file uploads</p>
+                                    </div>
+                                    <div style="padding: 1rem; background: #f8fafc; border-radius: 8px;">
+                                        <h4>Real-time Alerts</h4>
+                                        <p style="color: #64748b; font-size: 0.9rem;">Instant notifications for security events</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    break;
+            }
+        }
+
+        // User Views
+        function showUserView(view, container) {
+            const userDetections = systemData.detections.filter(d => d.userId === currentUser.id);
+            
+            switch(view) {
+                case 'overview':
+                    container.innerHTML = `
+                        <div class="fade-in">
+                            <h2 style="margin-bottom: 2rem; color: #1e293b;">My Dashboard</h2>
+                            <div class="grid">
+                                <div class="card">
+                                    <h3>Extension Status</h3>
+                                    <div class="stat">
+                                        <div class="stat-number" style="color: #10b981;">Active</div>
+                                        <div class="stat-label">Protection Enabled</div>
+                                    </div>
+                                </div>
+                                <div class="card">
+                                    <h3>Today's Activity</h3>
+                                    <div class="stat">
+                                        <div class="stat-number" style="color: #dc2626;">24</div>
+                                        <div class="stat-label">Pages Scanned</div>
+                                    </div>
+                                </div>
+                                <div class="card">
+                                    <h3>My Detections</h3>
+                                    <div class="stat">
+                                        <div class="stat-number" style="color: #dc2626;">${userDetections.length}</div>
+                                        <div class="stat-label">Total Alerts</div>
+                                    </div>
+                                </div>
+                                <div class="card">
+                                    <h3>Compliance</h3>
+                                    <div class="stat">
+                                        <div class="stat-number" style="color: #10b981;">100%</div>
+                                        <div class="stat-label">Score</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="card">
+                                <h3>Recent Security Events</h3>
+                                <div style="margin-top: 1rem;">
+                                    ${userDetections.length > 0 ? userDetections.map(detection => `
+                                        <p style="margin-bottom: 0.5rem;">
+                                            <span class="badge badge-${detection.severity === 'critical' ? 'danger' : detection.severity === 'high' ? 'warning' : 'info'}">${detection.severity}</span>
+                                            ${detection.type.replace('_', ' ')} detected on ${detection.url} - ${detection.action}
+                                            <small style="color: #64748b; margin-left: 1rem;">${detection.timestamp}</small>
+                                        </p>
+                                    `).join('') : '<p style="color: #64748b;">No security events detected</p>'}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'activity':
+                    container.innerHTML = `
+                        <div class="fade-in">
+                            <h2 style="margin-bottom: 2rem; color: #1e293b;">My Activity</h2>
+                            <div class="card">
+                                <h3>Recent Sessions</h3>
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Pages Visited</th>
+                                            <th>Detections</th>
+                                            <th>Duration</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>Jan 25, 2024</td>
+                                            <td>24</td>
+                                            <td>2</td>
+                                            <td>6h 30m</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Jan 24, 2024</td>
+                                            <td>18</td>
+                                            <td>1</td>
+                                            <td>5h 15m</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Jan 23, 2024</td>
+                                            <td>31</td>
+                                            <td>0</td>
+                                            <td>7h 45m</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                    break;
+            }
+        }
+
+        // Modal management
+        function showCreateModal(type) {
+            document.getElementById('createModal').style.display = 'flex';
+            document.getElementById('modalTitle').textContent = `Create ${type.charAt(0).toUpperCase() + type.slice(1)}`;
+            
+            const fields = document.getElementById('modalFields');
+            
+            if (type === 'organization') {
+                fields.innerHTML = `
+                    <div class="form-group">
+                        <label>Organization Name</label>
+                        <input type="text" name="name" placeholder="Acme Corporation" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Domain</label>
+                        <input type="text" name="domain" placeholder="acme.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Plan</label>
+                        <select name="plan" required>
+                            <option value="">Select Plan</option>
+                            <option value="basic">Basic (10 seats)</option>
+                            <option value="professional">Professional (50 seats)</option>
+                            <option value="enterprise">Enterprise (Unlimited)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Total Seats</label>
+                        <input type="number" name="totalSeats" placeholder="100" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Admin Email</label>
+                        <input type="email" name="adminEmail" placeholder="admin@acme.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Admin First Name</label>
+                        <input type="text" name="adminFirstName" placeholder="John" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Admin Last Name</label>
+                        <input type="text" name="adminLastName" placeholder="Smith" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Admin Password</label>
+                        <input type="password" name="adminPassword" placeholder="Secure password" required>
+                    </div>
+                `;
+            } else if (type === 'user') {
+                fields.innerHTML = `
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" name="email" placeholder="user@company.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label>First Name</label>
+                        <input type="text" name="firstName" placeholder="Jane" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Last Name</label>
+                        <input type="text" name="lastName" placeholder="Doe" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Role</label>
+                        <select name="role" required>
+                            <option value="">Select Role</option>
+                            <option value="user">User</option>
+                            <option value="manager">Manager</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" name="password" placeholder="Secure password" required>
+                    </div>
+                `;
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('createModal').style.display = 'none';
+        }
+
+        // Create form submission
+        document.getElementById('createForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            
+            // Simulate API call
+            try {
+                console.log('Creating:', data);
+                
+                // Show success message
+                alert('Created successfully!');
+                closeModal();
+                
+                // Refresh current view
+                showView(currentView);
+            } catch (error) {
+                alert('Error creating: ' + error.message);
+            }
+        });
+
+        function logout() {
+            currentUser = null;
+            currentRole = null;
+            showPortalSelector();
+        }
+
+        // Initialize
+        window.addEventListener('load', () => {
+            showPortalSelector();
+        });
+    </script>
+</body>
+</html>
