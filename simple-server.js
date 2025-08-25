@@ -10,6 +10,10 @@ app.use(express.json());
 const organizations = new Map();
 const users = new Map();
 const orgTokens = new Map();
+const masterAdmins = new Map();
+
+// Initialize master admin
+masterAdmins.set('mahesh@gmail.com', 'Aurion#2025');
 
 // Initialize default organizations
 const initData = () => {
@@ -56,7 +60,7 @@ const generateExtensionToken = () => {
 // Master Admin Routes
 app.post('/api/master/login', (req, res) => {
   const { email, password } = req.body;
-  if (email === 'master@company.com' && password === 'SecurePass2024!') {
+  if (masterAdmins.has(email) && masterAdmins.get(email) === password) {
     res.json({ token: 'master-token', role: 'master' });
   } else {
     res.status(401).json({ error: 'Invalid credentials' });
