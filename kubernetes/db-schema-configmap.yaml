@@ -5,7 +5,21 @@ metadata:
   namespace: extension-system
 data:
   schema.sql: |
-    -- Basic schema for extension system
+    -- Advanced Enterprise Extension Schema
+    
+    -- Master Admins Table
+    CREATE TABLE IF NOT EXISTS master_admins (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        first_name VARCHAR(100),
+        last_name VARCHAR(100),
+        status VARCHAR(50) DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_login TIMESTAMP
+    );
+
+    -- Organizations Table
     CREATE TABLE IF NOT EXISTS organizations (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
@@ -13,22 +27,27 @@ data:
         status VARCHAR(50) DEFAULT 'active',
         total_seats INTEGER DEFAULT 10,
         used_seats INTEGER DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        subscription_plan VARCHAR(50) DEFAULT 'basic',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
+    -- Users Table (Organization level)
     CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         email VARCHAR(255) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
         first_name VARCHAR(100),
         last_name VARCHAR(100),
-        role VARCHAR(50) DEFAULT 'user',
+        role VARCHAR(50) DEFAULT 'user', -- org_admin, manager, user
         organization_id INTEGER REFERENCES organizations(id),
         status VARCHAR(50) DEFAULT 'active',
         last_login TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        permissions JSONB DEFAULT '{}'
     );
 
+    -- Sensitive Data Patterns
     CREATE TABLE IF NOT EXISTS sensitive_patterns (
         id SERIAL PRIMARY KEY,
         pattern_name VARCHAR(255) NOT NULL,
@@ -37,9 +56,11 @@ data:
         description TEXT,
         organization_id INTEGER REFERENCES organizations(id),
         is_active BOOLEAN DEFAULT true,
+        created_by INTEGER REFERENCES users(id),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
+    -- Sensitive Data Detections
     CREATE TABLE IF NOT EXISTS sensitive_detections (
         id SERIAL PRIMARY KEY,
         user_id INTEGER REFERENCES users(id),
@@ -48,25 +69,74 @@ data:
         detected_patterns JSONB,
         severity VARCHAR(50),
         url TEXT,
+        source VARCHAR(100), -- extension, api, manual
         action_taken VARCHAR(50),
+        risk_score DECIMAL(3,2),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
+    -- AI Chatbot Policies
+    CREATE TABLE IF NOT EXISTS ai_chatbot_policies (
+        id SERIAL PRIMARY KEY,
+        organization_id INTEGER REFERENCES organizations(id),
+        chatbot_name VARCHAR(100),
+        domain VARCHAR(255),
+        policy VARCHAR(50), -- allow, warn, block
+        risk_level VARCHAR(50),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Audit Logs
     CREATE TABLE IF NOT EXISTS audit_logs (
         id SERIAL PRIMARY KEY,
         user_id INTEGER REFERENCES users(id),
         organization_id INTEGER REFERENCES organizations(id),
         action VARCHAR(255) NOT NULL,
+        resource_type VARCHAR(100),
+        resource_id INTEGER,
         details JSONB,
         ip_address INET,
+        user_agent TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
-    -- Insert default data
-    INSERT INTO organizations (name, domain, total_seats) 
-    VALUES ('Default Organization', 'localhost', 100) 
+    -- Extension Installations
+    CREATE TABLE IF NOT EXISTS extension_installations (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        organization_id INTEGER REFERENCES organizations(id),
+        extension_id VARCHAR(255),
+        version VARCHAR(50),
+        status VARCHAR(50) DEFAULT 'active',
+        last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Create indexes for performance
+    CREATE INDEX IF NOT EXISTS idx_users_org_id ON users(organization_id);
+    CREATE INDEX IF NOT EXISTS idx_detections_org_id ON sensitive_detections(organization_id);
+    CREATE INDEX IF NOT EXISTS idx_detections_created_at ON sensitive_detections(created_at);
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_org_id ON audit_logs(organization_id);
+
+    -- Insert Master Admin
+    INSERT INTO master_admins (email, password_hash, first_name, last_name)
+    VALUES ('master@extension-system.com', '$2b$10$rQZ8kHp0rQZ8kHp0rQZ8kOJ8kHp0rQZ8kHp0rQZ8kHp0rQZ8kHp0rQ', 'Master', 'Admin')
+    ON CONFLICT (email) DO NOTHING;
+
+    -- Insert Default Organization
+    INSERT INTO organizations (name, domain, total_seats, subscription_plan) 
+    VALUES ('Demo Organization', 'demo.localhost', 100, 'enterprise') 
     ON CONFLICT (domain) DO NOTHING;
 
+    -- Insert Organization Admin
     INSERT INTO users (email, password_hash, first_name, last_name, role, organization_id)
-    VALUES ('admin@localhost', '$2b$10$example.hash.here', 'Admin', 'User', 'admin', 1)
+    VALUES ('admin@demo.localhost', '$2b$10$rQZ8kHp0rQZ8kHp0rQZ8kOJ8kHp0rQZ8kHp0rQZ8kHp0rQZ8kHp0rQ', 'Org', 'Admin', 'org_admin', 1)
     ON CONFLICT (email) DO NOTHING;
+
+    -- Insert Default AI Chatbot Policies
+    INSERT INTO ai_chatbot_policies (organization_id, chatbot_name, domain, policy, risk_level)
+    VALUES 
+        (1, 'ChatGPT', 'chat.openai.com', 'warn', 'high'),
+        (1, 'Claude', 'claude.ai', 'warn', 'high'),
+        (1, 'Gemini', 'gemini.google.com', 'allow', 'medium')
+    ON CONFLICT DO NOTHING;
