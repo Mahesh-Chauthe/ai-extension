@@ -31,7 +31,7 @@ echo Master Portal: master-portal-local.html
 echo Organization Portal: org-portal-local.html
 echo.
 echo Login credentials:
-echo Master Portal: admin@enterprise.com / admin123
+echo Master Portal: master@company.com / SecurePass2024!
 echo.
 echo Organization tokens will be displayed in the API console
 echo ========================================
