@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: extension-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-api
+  namespace: extension-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-api
+  template:
+    metadata:
+      labels:
+        app: backend-api
+    spec:
+      containers:
+      - name: backend-api
+        image: node:18-alpine
+        command: ["sh", "-c"]
+        args: ["echo 'const http = require(\"http\"); const server = http.createServer((req,res) => { res.writeHead(200, {\"Content-Type\":\"application/json\"}); if(req.url === \"/health\") res.end(JSON.stringify({status:\"ok\"})); else res.end(JSON.stringify({message:\"Backend running\"})); }); server.listen(3000, \"0.0.0.0\", () => console.log(\"Backend ready\"));' > server.js && node server.js"]
+        ports:
+        - containerPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: extension-system
+spec:
+  selector:
+    app: backend-api
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-app
+  namespace: extension-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend-app
+  template:
+    metadata:
+      labels:
+        app: frontend-app
+    spec:
+      containers:
+      - name: frontend-app
+        image: node:18-alpine
+        command: ["sh", "-c"]
+        args: ["echo 'const http = require(\"http\"); const server = http.createServer((req,res) => { res.writeHead(200, {\"Content-Type\":\"text/html\"}); res.end(\"<h1>Frontend Running</h1><p>Port 3000</p>\"); }); server.listen(3000, \"0.0.0.0\", () => console.log(\"Frontend ready\"));' > server.js && node server.js"]
+        ports:
+        - containerPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: extension-system
+spec:
+  selector:
+    app: frontend-app
+  ports:
+  - name: http
+    port: 8081
+    targetPort: 3000
