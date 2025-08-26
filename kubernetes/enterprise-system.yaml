@@ -308,11 +308,11 @@ spec:
                           <form id="loginForm">
                               <div class="mb-4">
                                   <label class="block text-gray-700 text-sm font-bold mb-2">Email</label>
-                                  <input type="email" id="email" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500" value="admin@enterprise.com">
+                                  <input type="email" id="email" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500" value="mahesh@gmail.com">
                               </div>
                               <div class="mb-6">
                                   <label class="block text-gray-700 text-sm font-bold mb-2">Password</label>
-                                  <input type="password" id="password" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500" value="admin123">
+                                  <input type="password" id="password" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500" value="Aurion#2025">
                               </div>
                               <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-200">
                                   <i class="fas fa-sign-in-alt mr-2"></i>Login
@@ -402,32 +402,17 @@ spec:
               </div>
           
               <script>
-                  const API_BASE = 'http://localhost:30080/api';
-                  let authToken = '';
-          
-                  // Login functionality
-                  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+                  // Offline login - NO SERVER NEEDED
+                  document.getElementById('loginForm').addEventListener('submit', (e) => {
                       e.preventDefault();
                       const email = document.getElementById('email').value;
                       const password = document.getElementById('password').value;
           
-                      try {
-                          const response = await fetch(`${API_BASE}/master/login`, {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ email, password })
-                          });
-          
-                          if (response.ok) {
-                              const data = await response.json();
-                              authToken = data.token;
-                              showDashboard();
-                              loadOrganizations();
-                          } else {
-                              alert('Invalid credentials');
-                          }
-                      } catch (error) {
-                          alert('Login failed: ' + error.message);
+                      if (email === 'mahesh@gmail.com' && password === 'Aurion#2025') {
+                          showDashboard();
+                          loadOrganizations();
+                      } else {
+                          alert('Invalid credentials. Use mahesh@gmail.com / Aurion#2025');
                       }
                   });
           
