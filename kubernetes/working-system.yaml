@@ -1,0 +1,317 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: enterprise-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: enterprise-api
+  namespace: enterprise-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: enterprise-api
+  template:
+    metadata:
+      labels:
+        app: enterprise-api
+    spec:
+      containers:
+      - name: api
+        image: node:18-alpine
+        ports:
+        - containerPort: 8080
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          npm init -y
+          npm install express cors
+          cat > server.js << 'EOF'
+          const express = require('express');
+          const cors = require('cors');
+          const app = express();
+          app.use(cors());
+          app.use(express.json());
+          
+          const db = { organizations: [], users: [] };
+          
+          app.post('/api/master/login', (req, res) => {
+            const { email, password } = req.body;
+            if (email === 'mahesh@gmail.com' && password === 'Aurion#2025') {
+              res.json({ success: true, token: 'master-token', user: { email } });
+            } else {
+              res.status(401).json({ success: false, error: 'Invalid credentials' });
+            }
+          });
+          
+          app.get('/api/master/organizations', (req, res) => {
+            res.json({ success: true, data: db.organizations });
+          });
+          
+          app.post('/api/master/organizations', (req, res) => {
+            const { name, domain } = req.body;
+            const org = {
+              id: 'org_' + Date.now(),
+              name, domain,
+              accessToken: 'org_' + Math.random().toString(36).substring(2),
+              createdAt: new Date().toISOString(),
+              status: 'active'
+            };
+            db.organizations.push(org);
+            res.json({ success: true, data: org });
+          });
+          
+          app.post('/api/org/login', (req, res) => {
+            const { accessToken } = req.body;
+            const org = db.organizations.find(o => o.accessToken === accessToken);
+            if (org) {
+              res.json({ success: true, token: 'org-token', organization: org.name, orgId: org.id });
+            } else {
+              res.status(401).json({ success: false, error: 'Invalid access token' });
+            }
+          });
+          
+          app.get('/api/org/users', (req, res) => {
+            res.json({ success: true, data: db.users });
+          });
+          
+          app.post('/api/org/users', (req, res) => {
+            const { name, email, role } = req.body;
+            const user = {
+              id: 'user_' + Date.now(),
+              name, email, role: role || 'user',
+              extensionToken: 'ext_' + Math.random().toString(36).substring(2),
+              createdAt: new Date().toISOString(),
+              status: 'active'
+            };
+            db.users.push(user);
+            res.json({ success: true, data: user });
+          });
+          
+          app.get('/api/org/analytics', (req, res) => {
+            res.json({
+              success: true,
+              data: {
+                totalUsers: db.users.length,
+                activeUsers: db.users.filter(u => u.status === 'active').length,
+                totalScans: 150,
+                threatsBlocked: 25
+              }
+            });
+          });
+          
+          app.listen(8080, () => console.log('API running on port 8080'));
+          EOF
+          node server.js
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: enterprise-api-service
+  namespace: enterprise-system
+spec:
+  selector:
+    app: enterprise-api
+  ports:
+  - port: 8080
+    targetPort: 8080
+    nodePort: 30080
+  type: NodePort
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: master-portal
+  namespace: enterprise-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: master-portal
+  template:
+    metadata:
+      labels:
+        app: master-portal
+    spec:
+      containers:
+      - name: portal
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          cat > /usr/share/nginx/html/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>Master Portal</title>
+              <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+          </head>
+          <body class="bg-gray-50">
+              <div id="loginScreen" class="min-h-screen flex items-center justify-center">
+                  <div class="bg-white p-8 rounded-lg shadow-lg w-96">
+                      <h1 class="text-2xl font-bold text-center mb-6">Master Portal</h1>
+                      <form id="loginForm">
+                          <div class="mb-4">
+                              <label class="block text-sm font-bold mb-2">Email</label>
+                              <input type="email" id="email" class="w-full px-3 py-2 border rounded" placeholder="mahesh@gmail.com" required>
+                          </div>
+                          <div class="mb-6">
+                              <label class="block text-sm font-bold mb-2">Password</label>
+                              <input type="password" id="password" class="w-full px-3 py-2 border rounded" placeholder="Aurion#2025" required>
+                          </div>
+                          <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Login</button>
+                      </form>
+                  </div>
+              </div>
+              
+              <div id="dashboard" class="hidden">
+                  <nav class="bg-blue-600 text-white p-4">
+                      <div class="flex justify-between">
+                          <h1 class="text-xl font-bold">Master Portal</h1>
+                          <button id="logoutBtn" class="bg-blue-700 px-4 py-2 rounded">Logout</button>
+                      </div>
+                  </nav>
+                  <div class="container mx-auto p-6">
+                      <div class="bg-white rounded-lg shadow p-6">
+                          <div class="flex justify-between items-center mb-4">
+                              <h2 class="text-xl font-semibold">Organizations</h2>
+                              <button id="addOrgBtn" class="bg-blue-600 text-white px-4 py-2 rounded">Add Organization</button>
+                          </div>
+                          <div id="orgsList"></div>
+                      </div>
+                  </div>
+              </div>
+              
+              <div id="addOrgModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                  <div class="bg-white p-6 rounded-lg w-96">
+                      <h3 class="text-lg font-semibold mb-4">Add Organization</h3>
+                      <form id="addOrgForm">
+                          <div class="mb-4">
+                              <label class="block text-sm font-bold mb-2">Name</label>
+                              <input type="text" id="orgName" class="w-full px-3 py-2 border rounded" required>
+                          </div>
+                          <div class="mb-4">
+                              <label class="block text-sm font-bold mb-2">Domain</label>
+                              <input type="text" id="orgDomain" class="w-full px-3 py-2 border rounded" required>
+                          </div>
+                          <div class="flex justify-end space-x-2">
+                              <button type="button" id="cancelBtn" class="px-4 py-2 border rounded">Cancel</button>
+                              <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded">Create</button>
+                          </div>
+                      </form>
+                  </div>
+              </div>
+              
+              <script>
+                  const API_BASE = window.location.protocol + '//' + window.location.hostname.replace('-30090', '-30080') + '/api';
+                  let authToken = '';
+                  
+                  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+                      e.preventDefault();
+                      try {
+                          const response = await fetch(API_BASE + '/master/login', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                  email: document.getElementById('email').value,
+                                  password: document.getElementById('password').value
+                              })
+                          });
+                          const data = await response.json();
+                          if (data.success) {
+                              authToken = data.token;
+                              document.getElementById('loginScreen').classList.add('hidden');
+                              document.getElementById('dashboard').classList.remove('hidden');
+                              loadOrganizations();
+                          } else {
+                              alert(data.error);
+                          }
+                      } catch (error) {
+                          alert('Connection error: ' + error.message);
+                      }
+                  });
+                  
+                  async function loadOrganizations() {
+                      try {
+                          const response = await fetch(API_BASE + '/master/organizations');
+                          const result = await response.json();
+                          if (result.success) {
+                              const orgsList = document.getElementById('orgsList');
+                              orgsList.innerHTML = result.data.map(org => `
+                                  <div class="border rounded p-4 mb-4">
+                                      <h3 class="font-bold">${org.name}</h3>
+                                      <p class="text-gray-600">${org.domain}</p>
+                                      <p class="text-sm text-gray-500">Token: ${org.accessToken}</p>
+                                      <button onclick="copyToken('${org.accessToken}')" class="mt-2 bg-green-500 text-white px-3 py-1 rounded text-sm">Copy Token</button>
+                                  </div>
+                              `).join('');
+                          }
+                      } catch (error) {
+                          console.error('Failed to load organizations:', error);
+                      }
+                  }
+                  
+                  function copyToken(token) {
+                      navigator.clipboard.writeText(token);
+                      alert('Token copied!');
+                  }
+                  
+                  document.getElementById('addOrgBtn').addEventListener('click', () => {
+                      document.getElementById('addOrgModal').classList.remove('hidden');
+                  });
+                  
+                  document.getElementById('cancelBtn').addEventListener('click', () => {
+                      document.getElementById('addOrgModal').classList.add('hidden');
+                  });
+                  
+                  document.getElementById('addOrgForm').addEventListener('submit', async (e) => {
+                      e.preventDefault();
+                      try {
+                          const response = await fetch(API_BASE + '/master/organizations', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                  name: document.getElementById('orgName').value,
+                                  domain: document.getElementById('orgDomain').value
+                              })
+                          });
+                          const result = await response.json();
+                          if (result.success) {
+                              document.getElementById('addOrgModal').classList.add('hidden');
+                              document.getElementById('addOrgForm').reset();
+                              loadOrganizations();
+                          }
+                      } catch (error) {
+                          alert('Error: ' + error.message);
+                      }
+                  });
+                  
+                  document.getElementById('logoutBtn').addEventListener('click', () => {
+                      document.getElementById('dashboard').classList.add('hidden');
+                      document.getElementById('loginScreen').classList.remove('hidden');
+                      document.getElementById('email').value = '';
+                      document.getElementById('password').value = '';
+                  });
+              </script>
+          </body>
+          </html>
+          EOF
+          nginx -g 'daemon off;'
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: master-portal-service
+  namespace: enterprise-system
+spec:
+  selector:
+    app: master-portal
+  ports:
+  - port: 80
+    targetPort: 80
+    nodePort: 30090
+  type: NodePort
