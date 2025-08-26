@@ -20,11 +20,11 @@
                 <form id="loginForm">
                     <div class="mb-4">
                         <label class="block text-gray-700 text-sm font-bold mb-2">Email</label>
-                        <input type="email" id="email" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500" placeholder="Enter your email">
+                        <input type="email" id="email" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500" value="mahesh@gmail.com">
                     </div>
                     <div class="mb-4">
                         <label class="block text-gray-700 text-sm font-bold mb-2">Password</label>
-                        <input type="password" id="password" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500" placeholder="Enter your password">
+                        <input type="password" id="password" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500" value="Aurion#2025">
                     </div>
                     <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-200">
                         <i class="fas fa-sign-in-alt mr-2"></i>Login
@@ -49,12 +49,11 @@
                 <form id="forgotForm">
                     <div class="mb-4">
                         <label class="block text-gray-700 text-sm font-bold mb-2">Recovery Email</label>
-                        <input type="email" id="recoveryEmail" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-orange-500" placeholder="Enter recovery email">
+                        <input type="email" id="recoveryEmail" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-orange-500" value="recovery@gmail.com">
                     </div>
                     <div class="mb-4">
                         <label class="block text-gray-700 text-sm font-bold mb-2">Security Question</label>
                         <select id="securityQuestion" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-orange-500">
-                            <option value="">Select a question</option>
                             <option value="company">What is your company name?</option>
                             <option value="city">What city were you born in?</option>
                             <option value="pet">What is your pet's name?</option>
@@ -62,7 +61,7 @@
                     </div>
                     <div class="mb-6">
                         <label class="block text-gray-700 text-sm font-bold mb-2">Answer</label>
-                        <input type="text" id="securityAnswer" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-orange-500" placeholder="Enter your answer">
+                        <input type="text" id="securityAnswer" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-orange-500" placeholder="aurion / mumbai / buddy">
                     </div>
                     <button type="submit" class="w-full bg-orange-600 text-white py-2 px-4 rounded-lg hover:bg-orange-700 transition duration-200">
                         <i class="fas fa-unlock mr-2"></i>Recover Account
@@ -87,11 +86,11 @@
                 <div class="bg-gray-50 p-4 rounded-lg mb-6">
                     <div class="mb-3">
                         <label class="block text-gray-700 text-sm font-bold mb-1">Username:</label>
-                        <code id="recoveredEmail" class="text-blue-600 bg-white px-2 py-1 rounded border"></code>
+                        <code id="recoveredEmail" class="text-blue-600 bg-white px-2 py-1 rounded border">mahesh@gmail.com</code>
                     </div>
                     <div>
                         <label class="block text-gray-700 text-sm font-bold mb-1">Password:</label>
-                        <code id="recoveredPassword" class="text-blue-600 bg-white px-2 py-1 rounded border"></code>
+                        <code id="recoveredPassword" class="text-blue-600 bg-white px-2 py-1 rounded border">Aurion#2025</code>
                     </div>
                 </div>
                 <button id="useCredentialsBtn" class="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition duration-200">
@@ -220,34 +219,16 @@
     </div>
 
     <script>
-        // Database with master admin credentials
-        const masterAccounts = {
-            'mahesh@gmail.com': {
-                password: 'Aurion#2025',
-                recoveryEmail: 'recovery@gmail.com',
-                securityAnswers: {
-                    company: 'aurion',
-                    city: 'mumbai',
-                    pet: 'buddy'
-                }
-            }
-        };
-
-        // Killercoda API URL
-        const API_BASE = 'https://8e25379052cf-10-244-3-142-30264.papa.r.killercoda.com/api';
-
-        // Login functionality
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        // Login functionality - NO SERVER NEEDED
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
             e.preventDefault();
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
 
-            // Direct offline login (no server needed)
-            const account = masterAccounts[email];
-            if (account && account.password === password) {
+            if (email === 'mahesh@gmail.com' && password === 'Aurion#2025') {
                 showDashboard();
             } else {
-                alert('Invalid credentials. Use "Forgot Username/Password?" to recover.');
+                alert('Invalid credentials. Use mahesh@gmail.com / Aurion#2025');
             }
         });
 
@@ -268,35 +249,23 @@
             const question = document.getElementById('securityQuestion').value;
             const answer = document.getElementById('securityAnswer').value.toLowerCase();
 
-            // Find account by recovery email
-            let foundAccount = null;
-            let foundEmail = null;
-            
-            for (const [email, account] of Object.entries(masterAccounts)) {
-                if (account.recoveryEmail === recoveryEmail) {
-                    foundAccount = account;
-                    foundEmail = email;
-                    break;
-                }
-            }
+            const validAnswers = {
+                company: 'aurion',
+                city: 'mumbai', 
+                pet: 'buddy'
+            };
 
-            if (foundAccount && foundAccount.securityAnswers[question] === answer) {
-                document.getElementById('recoveredEmail').textContent = foundEmail;
-                document.getElementById('recoveredPassword').textContent = foundAccount.password;
+            if (recoveryEmail === 'recovery@gmail.com' && validAnswers[question] === answer) {
                 document.getElementById('forgotScreen').classList.add('hidden');
                 document.getElementById('recoveryScreen').classList.remove('hidden');
             } else {
-                alert('Invalid recovery details. Please check your information.');
+                alert('Invalid recovery details. Try: recovery@gmail.com with aurion/mumbai/buddy');
             }
         });
 
         document.getElementById('useCredentialsBtn').addEventListener('click', () => {
-            const email = document.getElementById('recoveredEmail').textContent;
-            const password = document.getElementById('recoveredPassword').textContent;
-            
-            document.getElementById('email').value = email;
-            document.getElementById('password').value = password;
-            
+            document.getElementById('email').value = 'mahesh@gmail.com';
+            document.getElementById('password').value = 'Aurion#2025';
             document.getElementById('recoveryScreen').classList.add('hidden');
             document.getElementById('loginScreen').classList.remove('hidden');
         });
